@@ -7,5 +7,5 @@ pages_build_output_dir = "public"
 [[d1_databases]]
 binding = "DB"
 database_name = "arknights-only-map"
-database_id = "REPLACE_WITH_YOUR_D1_ID"  # 执行 wrangler d1 create arknights-only-map 后回填
+database_id = "27a131d1-03b9-48b4-b169-89e0bad18f70"  # 执行 wrangler d1 create arknights-only-map 后回填
 migrations_dir = "migrations"
