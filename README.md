@@ -22,9 +22,12 @@
 
 ## 🛠 技术栈
 
-- 后端：Node.js + Express 5 + SQLite（better-sqlite3）
+- **部署形态（推荐）**：Cloudflare Pages + D1（serverless SQLite）+ Pages Functions
+- 后端：Hono 框架（运行于 Cloudflare Pages Functions），数据层为 D1 异步 API
 - 前端：原生 HTML/CSS/JS（无构建步骤）+ 高德地图 JS API 2.0
-- 导入：SheetJS(xlsx) 读表 + 高德地理编码补全坐标
+- 认证：node:crypto scrypt 加盐哈希 + HMAC-SHA256 签名 Cookie（首位注册者自动为管理员）
+- 导入：SheetJS(xlsx) 读表 + 高德 Web 服务地理编码补全坐标
+- *兼容遗留*：`server/`（Express + better-sqlite3）仍可本地或自托管 VPS 运行，详见部署章节
 
 ---
 
@@ -42,12 +45,20 @@ cp .env.example .env
 ```
 至少填写 `AMAP_KEY` 与 `AMAP_SECURITY_CODE`（前端地图，见下方申请步骤）。若想让坐标在服务器端批量预解析（首屏秒出标记），还需申请一个「Web 服务」类型的 Key 填入 `AMAP_WEB_KEY`（见下方）。`SESSION_SECRET` 建议改成随机长串。
 
-### 3. 启动
+### 3. 启动（两种形态）
+
+**A. Cloudflare 形态（推荐，与线上一致）**
 ```bash
-npm start
-# 或自定义端口： PORT=8080 npm start
+npm install
+npm run d1:init        # 初始化本地 D1（首次）
+npm run seed:local     # 生成并导入种子数据（可选，让本地也有标记）
+npm run dev            # 启动 wrangler pages dev，浏览器打开 http://localhost:8788
 ```
-浏览器打开 http://localhost:3000
+
+**B. Node 自托管形态（legacy，可选）**
+```bash
+npm start              # Express + better-sqlite3，浏览器打开 http://localhost:3000
+```
 
 ---
 
@@ -130,20 +141,25 @@ node scripts/import_excel.js data/sample_conventions.csv
 
 ```
 webdemo/
-├── server/
-│   ├── index.js     # Express 服务：路由 + 静态托管 + .env 注入
-│   ├── db.js        # SQLite 数据层（users / conventions）
-│   ├── auth.js      # 注册 / 登录 / 会话
-│   └── geocode.js   # 高德地理编码（补全坐标）
-├── public/
+├── functions/
+│   └── api/[[route]].js  # Cloudflare Pages Functions 入口（Hono 挂载 /api/*）
+├── src/
+│   ├── app.js       # Hono 应用：全部 /api 路由
+│   ├── db-d1.js     # D1(serverless SQLite) 数据层（users / conventions）
+│   ├── auth.js      # 注册 / 登录 / 会话（Workers 适配）
+│   └── geocode.js   # 高德 Web 服务地理编码
+├── public/              # 前端静态资源（Pages 直接托管）
 │   ├── index.html
 │   ├── css/style.css   # 明日方舟风格主题
 │   └── js/app.js       # 地图 / 列表 / 详情 / 账户 / 提交
+├── migrations/
+│   └── 0001_init.sql    # D1 建表
 ├── scripts/
-│   └── import_excel.js # Excel/CSV/腾讯文档 CSV 导入
-├── data/
-│   ├── app.db            # SQLite 数据库（运行时生成）
-│   └── sample_conventions.csv
+│   ├── import_excel.js  # Excel/CSV 导入（Node 形态）
+│   └── build_seed.js    # 从本地库导出脱敏种子 SQL（供 D1 导入）
+├── server/              # 遗留：Express + better-sqlite3 形态（可选自托管）
+├── data/                # 本地开发库 / 种子（见 .gitignore）
+├── wrangler.toml        # Cloudflare Pages + D1 配置
 ├── .env.example
 └── README.md
 ```
@@ -152,68 +168,98 @@ webdemo/
 
 ## 🌐 部署到公网
 
-> ⚠️ **重要前提**：本项目是**全栈应用**（Node + SQLite + 登录认证），不是纯静态页。
-> 常见的一键「静态托管」（如 CloudStudio 静态部署、GitHub Pages、Vercel 静态模式）**只能托管前端文件，跑不了后端 API 与数据库**——那样页面能打开，但地图标记加载不了、也无法提交 / 登录。务必选择**能运行 Node 进程**的宿主。
+> ⚠️ **重要前提**：本项目是**全栈应用**（登录认证 + 数据库），不是纯静态页。
+> 纯静态托管（GitHub Pages、Vercel 静态模式）**跑不了后端 API 与数据库**。本仓库已为 **Cloudflare Pages + D1** 适配，这是最省心、口碑最好的路线。
 
-### 方案 A：云服务器 / 轻量应用服务器（Docker，最稳，推荐）
+### 方案 A（推荐）：Cloudflare Pages + D1
 
-数据库以单文件 `data/app.db` 形式存在，挂载卷后重启不丢，最适合长期运营。
+免费额度大方、全球 CDN 快、自带 HTTPS，且 **D1 数据库天然持久**（重新部署不会丢数据），非常适合本项目的长期运营。
 
+#### 1. 准备 Cloudflare 账户与 Wrangler
 ```bash
-# 1. 把项目传到服务器（git clone 或 scp）
-# 2. 准备生产环境变量：在同目录新建 .env（不要提交进 git），填入
-#    SESSION_SECRET=一段随机长串
-#    AMAP_KEY=你的JS_API_Key
-#    AMAP_SECURITY_CODE=你的安全密钥
-#    AMAP_WEB_KEY=你的Web服务Key
-# 3. 构建并后台运行
-docker compose up -d --build
-# 4. 访问 http://服务器IP:3000
+npm install            # 已包含 wrangler
+npx wrangler login     # 浏览器授权登录 Cloudflare
 ```
 
-- 改端口：修改 `docker-compose.yml` 里的 `"3000:3000"`（前面是宿主机端口）
-- 备份数据库：`cp data/app.db data/app.db.bak`（或定期打包该文件）
-- 反代 + HTTPS（可选）：在前面套 Nginx / Caddy，把 80/443 反代到 3000，并配置证书
+#### 2. 创建 D1 数据库（只需一次）
+```bash
+npx wrangler d1 create arknights-only-map
+# 终端会给出一个 database_id，把它填进 wrangler.toml 的 database_id
+```
+然后初始化表结构：
+```bash
+npm run d1:init:remote
+```
 
-### 方案 B：Railway / Render 等 Git 部署平台（最快上手）
+#### 3. 配置环境变量与密钥
+Cloudflare 里分两类（都在 Cloudflare 控制台 → Pages → 你的项目 → Settings → Environment variables 设置，或用 wrangler）：
+- **普通变量（Variables）**：`AMAP_KEY`、`AMAP_SECURITY_CODE`、`AMAP_WEB_KEY`、`AMAP_WEB_SECRET`（可选）
+- **密钥（Secrets，不会在控制台明文显示，更安全）**：`SESSION_SECRET`（务必用随机长串）
 
-1. 把项目推到 GitHub
-2. 在平台新建项目 → 连仓库 → **Start command 填 `npm start`**
-3. 在平台环境变量里设置：`PORT`（平台会给）、`SESSION_SECRET`、`AMAP_KEY`、`AMAP_SECURITY_CODE`、`AMAP_WEB_KEY`
-4. 部署完成后平台给一个公网域名
+命令行设置示例：
+```bash
+npx wrangler pages secret put SESSION_SECRET          # 交互输入
+npx wrangler pages secret put AMAP_WEB_KEY
+# 普通变量用：npx wrangler pages project set-var ... 或在控制台填写
+```
 
-⚠️ **SQLite 持久化注意**：Railway / Render 的免费实例文件系统**重启 / 重新部署时可能被清空**，会丢数据库。两种对策：
-- 用平台提供的**持久化磁盘 / Volume** 并把 `DB_PATH` 指向挂载目录（如 `/data/app.db`）
-- 或后续把数据库迁移到托管 Postgres（需在 `server/db.js` 换驱动，可另行安排）
+#### 4. 部署
+```bash
+npm run deploy         # 等同 wrangler pages deploy public
+```
+完成后 Cloudflare 给一个 `*.pages.dev` 公网地址。
 
-### 方案 C：腾讯云 CloudStudio（开发容器方式）
+#### 5. 导入活动数据（让地图有标记）
+本地生成脱敏种子 SQL，再导入刚建的 D1：
+```bash
+npm run seed:build            # 从本地 data/app.db 生成 data/seed.sql（已脱敏联系方式）
+npm run seed:remote           # 写入线上 D1
+```
+> 若你手上没有本地 `data/app.db`，可手动在网站上注册管理员后，用「📍 补全坐标」或「提交」功能录入，或自行整理 CSV 后用 `scripts/import_excel.js` 导入本地库后再走上面流程。
 
-CloudStudio 的工作空间本质是带终端的真实容器，可以跑 Node，但**要用终端手动启动**，而非它的「静态部署」按钮：
+#### 6. 高德 Key 域名白名单（重要）
+前端地图用的 **JS API Key** 在 AMap 控制台若设置了「域名白名单 /  referers 限制」，请加上你的 Cloudflare 域名（如 `xxx.pages.dev` 或你绑定的自定义域名），否则地图会报「INVALID_USER_SCODE / 域名校验失败」。若嫌麻烦，可把该 Key 的域名限制关掉（仅建议测试期）。
 
-1. 在 CloudStudio 新建 Node 工作空间，导入本项目
-2. 打开终端执行：
-   ```bash
-   npm install
-   # 把 .env 内容填好（同本地，含 AMAP_* 与强随机 SESSION_SECRET）
-   npm start
-   ```
-3. 用 CloudStudio 的**端口转发 / 公网访问**功能把 3000 端口暴露出去
-4. 注意：工作空间休眠 / 销毁会丢数据，长期运营建议改用方案 A 的云服务器
+#### 本地预览（与线上一致）
+```bash
+npm run d1:init      # 初始化本地 D1（首次）
+npm run seed:local   # 可选：生成并导入本地种子
+npm run dev          # wrangler pages dev，打开 http://localhost:8788
+```
 
-### 环境变量清单（上线前必填）
+### 方案 B：云服务器 / 轻量应用服务器（Docker，自托管 VPS）
 
-| 变量 | 说明 | 备注 |
+数据库以单文件 `data/app.db` 形式存在，挂载卷后重启不丢，适合已有服务器的场景。`server/` 里是 Express + better-sqlite3 形态。
+
+```bash
+docker compose up -d --build   # 在同目录准备 .env（含 SESSION_SECRET / AMAP_*）
+# 访问 http://服务器IP:3000
+```
+
+### 方案 C：Railway / Render 等 Git 部署平台
+
+在平台连仓库，**Start command 填 `npm start`**（走 `server/` 的 Node 形态），环境变量设置：`SESSION_SECRET`、`AMAP_KEY`、`AMAP_SECURITY_CODE`、`AMAP_WEB_KEY`。
+
+⚠️ SQLite 持久化注意：免费实例文件系统重启可能被清空。挂载持久化磁盘并把 `DB_PATH` 指向挂载目录（如 `/data/app.db`）。
+
+### 方案 D：腾讯云 CloudStudio（开发容器）
+
+CloudStudio 是带终端的真实容器，可跑 Node 形态：终端 `npm install` → 填 `.env` → `npm start`，再用端口转发暴露 3000。注意休眠 / 销毁会丢数据。
+
+### 环境变量清单
+
+Cloudflare Pages 通过 **绑定 + 变量 / 密钥** 注入（见 wrangler.toml 的 `[[d1_databases]]` 与控制台 Environment variables）：
+
+| 名称 | 类型 | 说明 |
 |------|------|------|
-| `PORT` | 监听端口 | 容器 / 平台一般自动给，默认 3000 |
-| `SESSION_SECRET` | 会话签名密钥 | **务必改成随机长串**，否则会话可被伪造 |
-| `AMAP_KEY` | 高德 Web 端(JS API) Key | 前端地图 |
-| `AMAP_SECURITY_CODE` | 高德安全密钥 | 配 JS API Key |
-| `AMAP_WEB_KEY` | 高德 Web 服务 Key | 服务端批量解析坐标（首屏秒出标记） |
-| `AMAP_WEB_SECRET` | Web 服务数字签名私钥 | 仅当开启了数字签名才填 |
-| `DB_PATH` | 数据库文件路径 | 可选，默认 `data/app.db`；挂载盘时改这里 |
+| `DB` | D1 绑定 | 数据库（由 wrangler.toml 绑定，代码里用 `c.env.DB`） |
+| `SESSION_SECRET` | Secret | 会话签名密钥，**务必随机长串** |
+| `AMAP_KEY` | Variable | 高德 Web 端(JS API) Key |
+| `AMAP_SECURITY_CODE` | Variable | 高德安全密钥 |
+| `AMAP_WEB_KEY` | Secret | 高德 Web 服务 Key（服务端批量解析坐标） |
+| `AMAP_WEB_SECRET` | Secret | Web 服务数字签名私钥（仅开启数字签名才填） |
 
-- 本地开发：`npm start` 即可（沿用 `.env`）
-- 数据库为单文件 `data/app.db`，备份时复制该文件即可
+Node 自托管形态（`server/`）则用 `.env` 文件：`PORT`、`SESSION_SECRET`、`AMAP_KEY`、`AMAP_SECURITY_CODE`、`AMAP_WEB_KEY`、`AMAP_WEB_SECRET`、`DB_PATH`。
 
 ---
 

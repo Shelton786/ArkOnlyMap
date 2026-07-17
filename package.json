@@ -1,20 +1,38 @@
 {
   "name": "arknights-only-map",
-  "version": "1.0.0",
-  "description": "舟友同好集会地图 —— 明日方舟 ONLY 漫展分布地图（全栈可协作）",
+  "version": "1.1.0",
+  "description": "舟友同好集会地图 —— 明日方舟 ONLY 漫展分布地图（Cloudflare Pages + D1）",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "import": "node scripts/import_excel.js",
     "geocode": "node scripts/geocode_db.js",
-    "dev": "node server/index.js"
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public",
+    "d1:init": "wrangler d1 execute DB --local --file=migrations/0001_init.sql",
+    "d1:init:remote": "wrangler d1 execute DB --remote --file=migrations/0001_init.sql",
+    "seed:build": "node scripts/build_seed.js",
+    "seed:local": "node scripts/build_seed.js && wrangler d1 execute DB --local --file=data/seed.sql",
+    "seed:remote": "wrangler d1 execute DB --remote --file=data/seed.sql",
+    "test:local": "node scripts/test_local.mjs"
   },
-  "keywords": ["arknights", "map", "convention", "amap"],
+  "keywords": [
+    "arknights",
+    "map",
+    "convention",
+    "amap",
+    "cloudflare",
+    "d1"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "express": "^5.2.1",
+    "hono": "^4.6.14",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
   }
 }

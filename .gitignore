@@ -3,6 +3,9 @@ data/*.db
 data/*.db-wal
 data/*.db-shm
 .env
+.dev.vars
+.wrangler/
+tmp/
 .DS_Store
 .workbuddy/
 *.log

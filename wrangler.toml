@@ -1,0 +1,11 @@
+name = "arknights-only-map"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "public"
+
+# D1 数据库绑定（serverless SQLite）
+[[d1_databases]]
+binding = "DB"
+database_name = "arknights-only-map"
+database_id = "REPLACE_WITH_YOUR_D1_ID"  # 执行 wrangler d1 create arknights-only-map 后回填
+migrations_dir = "migrations"

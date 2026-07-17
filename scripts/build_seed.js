@@ -1,0 +1,64 @@
+/**
+ * 导出种子数据：从本地 better-sqlite3 库（data/app.db）读取全部活动，
+ * 脱敏（擦除 QQ / 群号等联系方式）后生成 data/seed.sql，
+ * 供 `wrangler d1 execute DB --remote --file=data/seed.sql` 导入 D1。
+ *
+ * 仅本地使用，依赖 better-sqlite3（devDependency）。
+ */
+'use strict';
+const path = require('path');
+const fs = require('fs');
+const Database = require('better-sqlite3');
+
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'app.db');
+const OUT = path.join(__dirname, '..', 'data', 'seed.sql');
+
+if (!fs.existsSync(DB_PATH)) {
+  console.error('未找到本地数据库，请先确认 data/app.db 存在（本地开发库）。');
+  process.exit(1);
+}
+
+const db = new Database(DB_PATH, { readonly: true });
+
+// 脱敏：把疑似 QQ / 群号（5-11 位连续数字，排除年份）替换为 [已脱敏]
+function redact(s) {
+  if (!s) return s;
+  return String(s).replace(/(?<![0-9])([1-9]\d{4,11})(?![0-9])/g, (m) => {
+    const y = Number(m);
+    if (y >= 1900 && y <= 2099) return m; // 保留年份
+    return '[已脱敏]';
+  });
+}
+
+function sqlStr(v) {
+  if (v === null || v === undefined) return 'NULL';
+  if (typeof v === 'number') return String(v);
+  return `'${String(v).replace(/'/g, "''")}'`;
+}
+
+const rows = db.prepare('SELECT * FROM conventions ORDER BY id').all();
+console.log(`读取 ${rows.length} 条活动，生成种子 SQL...`);
+
+const cols = [
+  'id', 'title', 'start_date', 'end_date', 'province', 'city', 'venue', 'address',
+  'longitude', 'latitude', 'description', 'organizer', 'source_url', 'poster_url',
+  'verified', 'tags', 'submitted_by',
+];
+
+const lines = ['-- 舟友同好集会地图 种子数据（已脱敏）', '-- 用途：wrangler d1 execute DB --remote --file=data/seed.sql', ''];
+let n = 0;
+for (const r of rows) {
+  const vals = cols.map((c) => {
+    if (c === 'submitted_by') return 'NULL'; // 不携带本地用户引用
+    if (c === 'description' || c === 'organizer') return sqlStr(redact(r[c]));
+    if (c === 'longitude' || c === 'latitude') return r[c] == null ? 'NULL' : String(Number(r[c]));
+    if (c === 'verified') return r[c] ? 1 : 0;
+    return sqlStr(r[c]);
+  });
+  lines.push(`INSERT OR REPLACE INTO conventions (${cols.join(', ')}) VALUES (${vals.join(', ')});`);
+  n++;
+}
+lines.push('');
+fs.writeFileSync(OUT, lines.join('\n'), 'utf8');
+console.log(`✅ 已写入 ${n} 条到 ${OUT}`);
+db.close();
