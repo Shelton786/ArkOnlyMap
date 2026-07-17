@@ -5,6 +5,7 @@
 一个**全栈可协作**的地图网站：进入即是地图，标点即看详情；左侧列表可筛选搜索；注册账户后可提交 / 编辑漫展；数据可从 Excel / 腾讯文档批量导入。
 
 参考站点：[kigmap.com](https://kigmap.com) ｜ 地图：高德地图 JS API ｜ 风格：明日方舟（主色 `#4AABEA`）
+🌐 线上演示：[arkonlymap.pages.dev](https://arkonlymap.pages.dev/)
 
 ---
 
@@ -209,6 +210,15 @@ npm run deploy         # 等同 wrangler pages deploy public
 ```
 完成后 Cloudflare 给一个 `*.pages.dev` 公网地址。
 
+> **通过 Cloudflare 控制台「连接到 Git」部署（推荐，push 即自动部署）**：
+> 在项目 **Settings → Builds & deployments** 中确认两项：
+> - **Build command（构建命令）**：`npm install --omit=dev`
+> - **Build output directory（构建输出目录）**：`public`
+>
+> ⚠️ **必须设置 Build command**。若不设置，构建会跳过 `npm install`，函数打包时会报 `Could not resolve "hono"` 而失败。本项目依赖已拆分：`hono` 在 `dependencies`（运行时必需），其余（better-sqlite3 / express / xlsx / wrangler）在 `devDependencies`（仅本地与脚本用），故 `--omit=dev` 即可装上运行所需的 `hono`。
+>
+> 部署成功后，到 **Settings → 变量和机密（Variables and Secrets）** 添加 4 个密钥（`SESSION_SECRET` / `AMAP_KEY` / `AMAP_SECURITY_CODE` / `AMAP_WEB_KEY`，类型选 Secret），然后**重新部署一次**让密钥生效。
+
 #### 5. 导入活动数据（让地图有标记）
 本地生成脱敏种子 SQL，再导入刚建的 D1：
 ```bash
@@ -260,6 +270,15 @@ Cloudflare Pages 通过 **绑定 + 变量 / 密钥** 注入（见 wrangler.toml 
 | `AMAP_WEB_SECRET` | Secret | Web 服务数字签名私钥（仅开启数字签名才填） |
 
 Node 自托管形态（`server/`）则用 `.env` 文件：`PORT`、`SESSION_SECRET`、`AMAP_KEY`、`AMAP_SECURITY_CODE`、`AMAP_WEB_KEY`、`AMAP_WEB_SECRET`、`DB_PATH`。
+
+---
+
+## 🔒 安全说明（密钥不会进仓库）
+
+- **仓库里没有任何密钥**。`wrangler.toml` 仅含 D1 的 `database_id`（一长串 UUID，是数据库的公共资源编号，**不是凭证**——拿到它也无法访问你的库，真正权限在你的 Cloudflare 账号）。
+- **真实密钥存在两处**：① 你本地被 `.gitignore` 忽略的 `.env`；② Cloudflare 控制台 → 你的项目 → Settings → 变量和机密（Variables and Secrets）。
+- `.env` 与 `.dev.vars` 已在 `.gitignore` 中，**请勿提交**。若要提交配置模板，改 `.env.example` / `.dev.vars.example`（均为占位，无真实值）。
+- 若担心 Key 泄露，可在高德开放平台与 Cloudflare 后台各自重新生成替换。
 
 ---
 
