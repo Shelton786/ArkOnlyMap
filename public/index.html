@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>舟友同好集会地图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◆</span>
+      <span class="brand-title">舟友同好集会地图</span>
+      <span class="brand-sub">ARKNIGHTS ONLY · 同好集会分布</span>
+    </div>
+    <div class="top-actions">
+      <div class="search-box">
+        <input id="search" type="text" placeholder="搜索名称 / 城市 / 主办…" />
+      </div>
+      <button id="btn-submit" class="ak-btn ak-btn--primary">＋ 提交漫展</button>
+      <div id="auth-area" class="auth-area"></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div class="filters-status" id="status-tabs">
+          <button class="tab active" data-status="">全部</button>
+          <button class="tab" data-status="upcoming">即将举办</button>
+          <button class="tab" data-status="ongoing">进行中</button>
+          <button class="tab" data-status="past">已结束</button>
+        </div>
+        <div class="filters-city">
+          <select id="city-select"><option value="">全部城市</option></select>
+          <span id="count" class="count">0 个活动</span>
+        </div>
+      </div>
+      <ul id="event-list" class="event-list"></ul>
+      <div id="list-empty" class="list-empty hidden">暂无符合条件的漫展，换个筛选或去提交一个吧。</div>
+    </aside>
+
+    <section class="map-wrap">
+      <div id="map"></div>
+      <div id="map-loading" class="map-loading hidden">
+        <div class="ml-spinner"></div>
+        <div class="ml-text" id="map-loading-text">正在定位活动坐标…</div>
+      </div>
+      <div id="map-hint" class="map-hint hidden">点击地图选择漫展地点</div>
+      <button id="toggle-list" class="ak-btn ak-btn--ghost mobile-only">☰ 列表</button>
+      <div id="map-legend" class="map-legend">
+        <span><i class="dot dot--upcoming"></i>即将举办</span>
+        <span><i class="dot dot--ongoing"></i>进行中</span>
+        <span><i class="dot dot--past"></i>已结束</span>
+        <button id="btn-geocode" class="ak-btn ak-btn--sm hidden" style="margin-left:6px;">📍 补全坐标</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- 详情面板 -->
+  <div id="detail-panel" class="detail-panel hidden"></div>
+
+  <!-- 弹窗根 -->
+  <div id="modal-root"></div>
+
+  <!-- 轻提示 -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

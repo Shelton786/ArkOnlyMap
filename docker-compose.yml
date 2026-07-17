@@ -1,0 +1,21 @@
+# 舟友同好集会地图 —— 容器编排
+# 用法：在服务器上
+#   1) 把生产环境变量写进同目录的 .env（不要提交进 git）
+#   2) docker compose up -d --build
+services:
+  arknights-map:
+    build: .
+    container_name: arknights-map
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - SESSION_SECRET=${SESSION_SECRET}
+      - AMAP_KEY=${AMAP_KEY}
+      - AMAP_SECURITY_CODE=${AMAP_SECURITY_CODE}
+      - AMAP_WEB_KEY=${AMAP_WEB_KEY}
+    volumes:
+      # 持久化 SQLite 数据库（重启 / 重建容器不丢数据）
+      - ./data:/app/data
+    restart: unless-stopped

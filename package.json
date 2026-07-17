@@ -1,0 +1,20 @@
+{
+  "name": "arknights-only-map",
+  "version": "1.0.0",
+  "description": "舟友同好集会地图 —— 明日方舟 ONLY 漫展分布地图（全栈可协作）",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "import": "node scripts/import_excel.js",
+    "geocode": "node scripts/geocode_db.js",
+    "dev": "node server/index.js"
+  },
+  "keywords": ["arknights", "map", "convention", "amap"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.2.1",
+    "xlsx": "^0.18.5"
+  }
+}
