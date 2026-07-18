@@ -88,9 +88,16 @@ export async function attachUser(c, next) {
   }
   if (uid != null) {
     const u = await db.getUserById(c.env.DB, uid);
-    if (u) c.set('user', { id: u.id, username: u.username, role: u.role });
+    if (u) c.set('user', u); // 完整资料（含 amid / email / role / email_verified）
   }
   await next();
+}
+
+// 角色层级：数字越大权限越高
+const ROLE_RANK = { user: 0, organizer: 1, admin: 2, site_admin: 3 };
+function roleAtLeast(user, role) {
+  if (!user) return false;
+  return (ROLE_RANK[user.role] ?? -1) >= (ROLE_RANK[role] ?? 0);
 }
 
 function requireAuth(c, next) {
@@ -101,8 +108,47 @@ function requireAuth(c, next) {
 function requireAdmin(c, next) {
   const user = c.get('user');
   if (!user) return c.json({ error: '请先登录' }, 401);
-  if (user.role !== 'admin') return c.json({ error: '需要管理员权限' }, 403);
+  if (!roleAtLeast(user, 'admin')) return c.json({ error: '需要管理员权限' }, 403);
   return next();
+}
+
+function requireAdminOrAbove(c, next) {
+  const user = c.get('user');
+  if (!user) return c.json({ error: '请先登录' }, 401);
+  if (!roleAtLeast(user, 'admin')) return c.json({ error: '需要管理员权限' }, 403);
+  return next();
+}
+
+function requireSiteAdmin(c, next) {
+  const user = c.get('user');
+  if (!user) return c.json({ error: '请先登录' }, 401);
+  if (!roleAtLeast(user, 'site_admin')) return c.json({ error: '需要站长（site_admin）权限' }, 403);
+  return next();
+}
+
+function requireOrganizerOrAbove(c, next) {
+  const user = c.get('user');
+  if (!user) return c.json({ error: '请先登录' }, 401);
+  if (!roleAtLeast(user, 'organizer')) return c.json({ error: '需要主办及以上权限' }, 403);
+  return next();
+}
+
+// 是否可编辑某活动：admin+ / 自己提交的 / 认领且已通过的主办
+function canEditEvent(user, event) {
+  if (!user || !event) return false;
+  if (roleAtLeast(user, 'admin')) return true;
+  if (event.submitted_by != null && event.submitted_by === user.id) return true;
+  if (event.organizer_claim_status === 'approved' && event.organizer_user_id === user.id) return true;
+  return false;
+}
+
+// 是否可删除某活动：admin+ / 自己提交的 / 认领且已通过的主办
+function canDeleteEvent(user, event) {
+  if (!user || !event) return false;
+  if (roleAtLeast(user, 'admin')) return true;
+  if (event.submitted_by != null && event.submitted_by === user.id) return true;
+  if (event.organizer_claim_status === 'approved' && event.organizer_user_id === user.id) return true;
+  return false;
 }
 
 export {
@@ -115,4 +161,11 @@ export {
   clearSessionCookie,
   requireAuth,
   requireAdmin,
+  requireAdminOrAbove,
+  requireSiteAdmin,
+  requireOrganizerOrAbove,
+  canEditEvent,
+  canDeleteEvent,
+  roleAtLeast,
+  ROLE_RANK,
 };

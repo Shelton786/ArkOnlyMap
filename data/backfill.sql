@@ -1,0 +1,11 @@
+UPDATE users SET amid='AM-20455550', display_name=COALESCE(display_name, 'Doc') WHERE id=1;
+INSERT OR IGNORE INTO auth_identities (user_id, provider, provider_account_id, provider_username, verified) VALUES (1, 'password', 'Doc', 'Doc', 1);
+UPDATE users SET amid='AM-01322848', display_name=COALESCE(display_name, 'monster') WHERE id=2;
+INSERT OR IGNORE INTO auth_identities (user_id, provider, provider_account_id, provider_username, verified) VALUES (2, 'password', 'monster', 'monster', 1);
+UPDATE users SET amid='AM-01298871', display_name=COALESCE(display_name, '中苏') WHERE id=3;
+INSERT OR IGNORE INTO auth_identities (user_id, provider, provider_account_id, provider_username, verified) VALUES (3, 'password', '中苏', '中苏', 1);
+UPDATE users SET amid='AM-45881360', display_name=COALESCE(display_name, '枕头的懒觉主') WHERE id=4;
+INSERT OR IGNORE INTO auth_identities (user_id, provider, provider_account_id, provider_username, verified) VALUES (4, 'password', '枕头的懒觉主', '枕头的懒觉主', 1);
+UPDATE users SET role='site_admin' WHERE id=1 AND amid IS NOT NULL;
+UPDATE conventions SET review_status='approved' WHERE review_status IS NULL OR review_status='';
+UPDATE conventions SET organizer_claim_status='none' WHERE organizer_claim_status IS NULL OR organizer_claim_status='';

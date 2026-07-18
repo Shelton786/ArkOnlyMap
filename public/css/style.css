@@ -411,3 +411,57 @@ body {
   background-color: rgba(74,171,234,0.22) !important;
 }
 .amap-sug--item .sug-subtitle, [id^="amap_auto_"] .sug-subtitle { color: #9fb2cf !important; }
+
+/* ---------------- 角色徽章 ---------------- */
+.role-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
+.role-site { color: #ff9d4d; }
+.role-admin { color: var(--ak-advanced); }
+.role-org { color: var(--ak-primary); }
+.role-user { color: var(--text-mute); }
+
+/* ---------------- 未确认（pending）样式 ---------------- */
+.badge--pending { color: var(--ak-advanced); border-style: dashed; }
+.event-card.is-pending { border-left-style: dashed; opacity: .94; }
+.event-card.is-pending .ec-title { color: var(--ak-advanced); }
+.ak-marker.is-pending { opacity: .85; }
+.ak-marker.is-pending .pin { background: transparent !important; border-style: dashed; }
+
+/* ---------------- 补充模式提示 ---------------- */
+.supplement-banner {
+  font-size: 12px; color: var(--ak-advanced); line-height: 1.6;
+  background: rgba(241,198,68,0.08); border: 1px dashed rgba(241,198,68,0.5);
+  border-radius: var(--radius); padding: 8px 12px; margin-bottom: 14px;
+}
+
+/* ---------------- 账户中心 ---------------- */
+.ac-grid { margin-bottom: 14px; }
+.ac-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line-soft); font-size: 13px; }
+.ac-row .k { color: var(--text-mute); width: 56px; flex-shrink: 0; }
+.ac-row .v { color: var(--text); flex: 1; word-break: break-word; }
+.ac-row .v.amid { font-family: 'Roboto', monospace; color: var(--ak-primary); letter-spacing: 1px; }
+.ac-sep { border: none; border-top: 1px solid var(--line-soft); margin: 16px 0; }
+.ac-section-title { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+.ac-binds { display: flex; flex-direction: column; gap: 10px; }
+.bind-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; gap: 10px; }
+.bind-on { color: var(--ak-advanced); font-size: 12px; }
+.bind-soon { color: var(--text-mute); font-size: 12px; }
+
+/* ---------------- 审核队列 ---------------- */
+.review-list { display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto; }
+.review-item { background: rgba(24,41,79,0.6); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 12px 14px; }
+.ri-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.ri-head b { font-size: 14px; color: #fff; }
+.ri-meta { font-size: 12px; color: var(--text-dim); margin: 6px 0; }
+.ri-desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; background: rgba(7,11,22,0.4); padding: 8px 10px; border-radius: var(--radius); max-height: 120px; overflow-y: auto; }
+.ri-actions { display: flex; gap: 10px; margin-top: 10px; }
+.ri-actions .ak-btn { flex: 1; }
+
+/* ---------------- 用户管理 ---------------- */
+.user-admin-list { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
+.ua-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+.ua-name { color: var(--text); }
+.ua-name small { color: var(--text-mute); margin-left: 6px; font-family: 'Roboto', monospace; }
+.ua-role {
+  height: 32px; padding: 0 8px; background: rgba(7,11,22,0.6); color: var(--text);
+  border: 1px solid var(--line-soft); border-radius: var(--radius); font-size: 13px; outline: none;
+}

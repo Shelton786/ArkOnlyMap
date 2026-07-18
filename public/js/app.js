@@ -13,6 +13,12 @@ const state = {
 };
 
 const STATUS_TEXT = { upcoming: '即将举办', ongoing: '进行中', past: '已结束', unknown: '待定' };
+const ROLE_LABEL = { site_admin: '站长', admin: '管理员', organizer: '主办', user: '舟友' };
+const ROLE_CLASS = { site_admin: 'role-site', admin: 'role-admin', organizer: 'role-org', user: 'role-user' };
+function roleLabel(r) { return ROLE_LABEL[r] || '舟友'; }
+function roleClass(r) { return ROLE_CLASS[r] || 'role-user'; }
+// 审核状态前端文案
+const REVIEW_BADGE = { pending: '未确认', rejected: '已驳回', merged: '已合并' };
 
 // 默认地图视图：长三角（南京—上海之间），解决“一进来太大看不清”的问题
 const DEFAULT_CENTER = [119.6, 31.6];
@@ -178,12 +184,14 @@ function renderList(list) {
   empty.classList.add('hidden');
   for (const ev of list) {
     const art = document.createElement('article');
-    art.className = 'event-card' + (ev.id === state.selectedId ? ' is-active' : '');
+    const pendCls = ev.review_status === 'pending' ? ' is-pending' : '';
+    art.className = 'event-card' + (ev.id === state.selectedId ? ' is-active' : '') + pendCls;
     art.tabIndex = 0;
     art.innerHTML = `
       <div class="ec-top">
         <h3 class="ec-title">${esc(ev.title)}</h3>
         <span class="badge badge--${ev.status}">${STATUS_TEXT[ev.status] || '待定'}</span>
+        ${ev.review_status === 'pending' ? `<span class="badge badge--pending">${ev.submission_type === 'supplement' ? '未确认·补充' : '未确认'}</span>` : ''}
       </div>
       <p class="ec-meta">
         📅 ${esc(fmtDate(ev))}<br/>
@@ -206,7 +214,8 @@ async function renderCities() {
 
 /* ---------------- 地图标记 ---------------- */
 function markerHtml(ev) {
-  return `<div class="ak-marker is-${ev.status}">
+  const pend = ev.review_status === 'pending' ? ' is-pending' : '';
+  return `<div class="ak-marker is-${ev.status}${pend}">
       ${ev.status === 'upcoming' ? '<span class="pulse"></span>' : ''}
       <span class="pin"></span>
     </div>`;
@@ -327,13 +336,30 @@ function openDetail(ev) {
   const p = ev.poster_url ? `<img class="detail-poster" src="${esc(safeUrl(ev.poster_url))}" onerror="this.style.display='none'"/>` : '';
   const link = safeUrl(ev.source_url) ? `<a class="detail-link" href="${esc(ev.source_url)}" target="_blank" rel="noopener">查看官方信息 ↗</a>` : '';
   const tags = Array.isArray(ev.tags) ? ev.tags : [];
+  const u = state.user;
+  const isAdmin = u && (u.role === 'admin' || u.role === 'site_admin');
+  const isPending = ev.review_status === 'pending';
+  const actions = [];
+  if (link) actions.push(link);
+  if (canEdit(ev)) actions.push(`<button class="ak-btn ak-btn--sm" onclick="openEdit(${ev.id})">编辑</button>`);
+  if (canDelete(ev)) actions.push(`<button class="ak-btn ak-btn--sm ak-btn--danger" onclick="deleteEvent(${ev.id})">删除</button>`);
+  if (u && ev.review_status !== 'merged') actions.push(`<button class="ak-btn ak-btn--sm ak-btn--ghost" onclick="openSupplement(${ev.id})">补充信息</button>`);
+  if (u && ev.organizer_claim_status === 'none' && !(ev.organizer_user_id === u.id && ev.organizer_claim_status === 'approved')) {
+    actions.push(`<button class="ak-btn ak-btn--sm ak-btn--ghost" onclick="claimEvent(${ev.id})">认领此集会</button>`);
+  }
+  if (isAdmin && ev.organizer_claim_status === 'pending') {
+    actions.push(`<button class="ak-btn ak-btn--sm" onclick="approveClaim(${ev.id})">通过认领</button>`);
+  }
+  const reviewTag = isPending
+    ? `<span class="badge badge--pending">${ev.submission_type === 'supplement' ? '未确认·补充' : '未确认'}</span>`
+    : '';
   const panel = document.getElementById('detail-panel');
   panel.innerHTML = `
     <button class="detail-close" onclick="closeDetail()">×</button>
     ${p}
     <div class="detail-body">
       <h2 class="detail-title">${esc(ev.title)}</h2>
-      <p class="detail-sub">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))}</p>
+      <p class="detail-sub">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))} ${reviewTag}</p>
       <div class="detail-rows">
         ${ev.city ? row('城市', ev.city + (ev.province ? ' / ' + ev.province : '')) : ''}
         ${ev.venue ? row('场馆', ev.venue) : ''}
@@ -341,14 +367,13 @@ function openDetail(ev) {
         ${ev.organizer ? row('主办', ev.organizer) : ''}
         ${tags.length ? row('标签', tags.join('、')) : ''}
         ${ev.submitted_by_name ? row('提交者', ev.submitted_by_name) : ''}
+        ${isPending ? row('审核', ev.submission_type === 'supplement' ? '补充待合并' : '待管理员确认') : ''}
+        ${ev.organizer_claim_status === 'pending' ? row('认领', '待管理员确认') : ''}
+        ${ev.organizer_claim_status === 'approved' ? row('主办', '已认领') : ''}
         ${ev.verified ? row('核实', '✓ 已核实') : ''}
       </div>
       ${ev.description ? `<div class="detail-desc">${esc(ev.description)}</div>` : ''}
-      <div class="detail-actions">
-        ${link}
-        ${canEdit(ev) ? `<button class="ak-btn ak-btn--sm" onclick="openEdit(${ev.id})">编辑</button>` : ''}
-        ${canEdit(ev) ? `<button class="ak-btn ak-btn--sm ak-btn--danger" onclick="deleteEvent(${ev.id})">删除</button>` : ''}
-      </div>
+      <div class="detail-actions">${actions.join('')}</div>
     </div>`;
   panel.classList.remove('hidden');
 }
@@ -359,8 +384,35 @@ function closeDetail() {
   applyFilters();
 }
 function canEdit(ev) {
-  return state.user && (state.user.role === 'admin' || ev.submitted_by === state.user.id);
+  const u = state.user;
+  if (!u || !ev) return false;
+  if (u.role === 'admin' || u.role === 'site_admin') return true;
+  if (ev.submitted_by != null && ev.submitted_by === u.id) return true;
+  if (ev.organizer_claim_status === 'approved' && ev.organizer_user_id === u.id) return true;
+  return false;
 }
+function canDelete(ev) { return canEdit(ev); }
+
+async function claimEvent(id) {
+  const r = await api(`/api/events/${id}/claim`, { method: 'POST' });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || '认领失败'); return; }
+  toast('已提交认领，等待管理员审核');
+  const d = await r.json();
+  const ev = state.events.find((e) => e.id === id);
+  if (ev) { Object.assign(ev, d); openDetail(ev); } else loadEvents();
+}
+window.claimEvent = claimEvent;
+
+async function approveClaim(id) {
+  const r = await api(`/api/events/${id}/claim/approve`, { method: 'POST' });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || '操作失败'); return; }
+  toast('已通过认领');
+  const d = await r.json();
+  const ev = state.events.find((e) => e.id === id);
+  if (ev) Object.assign(ev, d);
+  openDetail(ev || d);
+}
+window.approveClaim = approveClaim;
 
 /* ---------------- 账户 ---------------- */
 async function loadMe() {
@@ -376,16 +428,27 @@ function renderAuth() {
   const submitBtn = document.getElementById('btn-submit');
   if (state.user) {
     const u = state.user;
+    const isAdmin = u.role === 'admin' || u.role === 'site_admin';
     area.innerHTML = `
+      <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-account">账户中心</button>
+      ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-review">审核队列</button>' : ''}
+      ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
       <div class="user-chip">
-        <span class="avatar">${esc(u.username.slice(0, 1))}</span>
-        <span>${esc(u.username)}</span>
-        ${u.role === 'admin' ? '<span class="role-admin">管理员</span>' : ''}
+        <span class="avatar">${esc((u.display_name || u.username).slice(0, 1))}</span>
+        <span>${esc(u.display_name || u.username)}</span>
+        <span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>
       </div>
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;
+    document.getElementById('btn-account').onclick = openAccountCenter;
     document.getElementById('btn-logout').onclick = logout;
+    if (isAdmin) document.getElementById('btn-review').onclick = openReviewQueue;
+    if (u.role === 'site_admin') document.getElementById('btn-users').onclick = openUserAdmin;
     submitBtn.style.display = '';
     submitBtn.onclick = () => openSubmit();
+    const gb = document.getElementById('btn-geocode');
+    if (gb) {
+      if (isAdmin) { gb.classList.remove('hidden'); gb.onclick = geocodeAll; } else gb.classList.add('hidden');
+    }
   } else {
     area.innerHTML = `
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-login">登录</button>
@@ -393,17 +456,159 @@ function renderAuth() {
     document.getElementById('btn-login').onclick = () => openAuth('login');
     document.getElementById('btn-register').onclick = () => openAuth('register');
     submitBtn.style.display = 'none';
-  }
-  const gb = document.getElementById('btn-geocode');
-  if (gb) {
-    if (state.user && state.user.role === 'admin') { gb.classList.remove('hidden'); gb.onclick = geocodeAll; }
-    else gb.classList.add('hidden');
+    const gb = document.getElementById('btn-geocode');
+    if (gb) gb.classList.add('hidden');
   }
 }
 async function logout() {
   await api('/api/auth/logout', { method: 'POST' });
   state.user = null; renderAuth(); toast('已退出');
 }
+
+/* ---------------- 账户中心 ---------------- */
+async function openAccountCenter() {
+  if (!state.user) { openAuth('login'); return; }
+  const r = await api('/api/auth/me');
+  const d = await r.json();
+  if (!d.user) { state.user = null; renderAuth(); return; }
+  state.user = d.user;
+  const u = d.user;
+  const hypergryph = (u.providers || []).includes('hypergryph');
+  openModal(`
+    <div class="modal-title">账户中心</div>
+    <div class="modal-sub">你的同好身份与绑定</div>
+    <div class="ac-grid">
+      <div class="ac-row"><span class="k">身份号</span><span class="v amid">${esc(u.amid)}</span></div>
+      <div class="ac-row"><span class="k">角色</span><span class="v"><span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span></span></div>
+      <div class="ac-row"><span class="k">昵称</span><span class="v">${esc(u.username)}</span></div>
+      <div class="ac-row"><span class="k">展示名</span><span class="v">${esc(u.display_name || u.username)}</span></div>
+      <div class="ac-row"><span class="k">邮箱</span><span class="v">${u.email ? esc(u.email) + (u.email_verified ? ' ✓' : '（未验证）') : '未设置'}</span></div>
+    </div>
+    <div class="field"><label>修改展示名</label><input id="ac-dn" value="${esc(u.display_name || u.username)}" maxlength="30" /></div>
+    <div class="field"><label>修改邮箱（验证阶段暂未开启）</label><input id="ac-email" type="email" value="${esc(u.email || '')}" placeholder="you@example.com" /></div>
+    <div class="modal-error" id="ac-error"></div>
+    <div class="modal-actions">
+      <button class="ak-btn ak-btn--primary" id="ac-save">保存</button>
+      <button class="ak-btn ak-btn--ghost" onclick="closeModal()">关闭</button>
+    </div>
+    <hr class="ac-sep" />
+    <div class="ac-section-title">第三方绑定</div>
+    <div class="ac-binds">
+      <div class="bind-row">
+        <span>鹰角通行证（11 位 UID）</span>
+        ${hypergryph ? '<span class="bind-on">已绑定</span><button class="ak-btn ak-btn--sm ak-btn--ghost" id="ac-unhg">解绑</button>' : '<button class="ak-btn ak-btn--sm" id="ac-bindhg">绑定</button>'}
+      </div>
+      <div class="bind-row"><span>QQ / 微信 / Telegram</span><span class="bind-soon">即将开放</span></div>
+    </div>`);
+  document.getElementById('ac-save').onclick = saveAccount;
+  if (hypergryph) document.getElementById('ac-unhg').onclick = unbindHg;
+  else document.getElementById('ac-bindhg').onclick = bindHg;
+}
+window.openAccountCenter = openAccountCenter;
+
+async function saveAccount() {
+  const dn = document.getElementById('ac-dn').value.trim();
+  const email = document.getElementById('ac-email').value.trim();
+  const err = document.getElementById('ac-error');
+  const r = await api('/api/auth/me', { method: 'PUT', body: JSON.stringify({ display_name: dn, email }) });
+  const d = await r.json();
+  if (!r.ok) { err.textContent = d.error || '保存失败'; return; }
+  state.user = d.user; renderAuth(); closeModal(); toast('已保存');
+}
+window.saveAccount = saveAccount;
+
+async function bindHg() {
+  const uid = prompt('请输入你的鹰角通行证 11 位 UID：');
+  if (!uid) return;
+  const r = await api('/api/auth/link/hypergryph', { method: 'POST', body: JSON.stringify({ uid }) });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || '绑定失败'); return; }
+  state.user = d.user; renderAuth(); openAccountCenter(); toast('已绑定鹰角通行证');
+}
+window.bindHg = bindHg;
+
+async function unbindHg() {
+  if (!confirm('确定解绑鹰角通行证？')) return;
+  const r = await api('/api/auth/link/hypergryph', { method: 'DELETE' });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || '解绑失败'); return; }
+  state.user = d.user; renderAuth(); openAccountCenter(); toast('已解绑');
+}
+window.unbindHg = unbindHg;
+
+/* ---------------- 审核队列 ---------------- */
+async function openReviewQueue() {
+  const r = await api('/api/admin/review');
+  if (!r.ok) { toast('无权限'); return; }
+  const list = await r.json();
+  openModal(`
+    <div class="modal-title">审核队列</div>
+    <div class="modal-sub">待确认活动（公开但标「未确认」）</div>
+    <div id="review-list" class="review-list">
+      ${list.length ? '' : '<p class="list-empty">暂无待审核活动</p>'}
+    </div>`);
+  const box = document.getElementById('review-list');
+  for (const ev of list) {
+    const item = document.createElement('div');
+    item.className = 'review-item';
+    const typeTxt = ev.submission_type === 'supplement' ? '补充信息' : '新建活动';
+    item.innerHTML = `
+      <div class="ri-head"><b>${esc(ev.title)}</b><span class="badge badge--pending">${esc(typeTxt)}</span></div>
+      <div class="ri-meta">${esc(ev.city || '')} · 提交者 ${esc(ev.submitted_by_name || '匿名')}${ev.submission_type === 'supplement' && ev.parent_event_id ? ' · 补充至 #' + esc(ev.parent_event_id) : ''}</div>
+      ${ev.description ? '<div class="ri-desc">' + esc(ev.description) + '</div>' : ''}
+      <div class="ri-actions">
+        <button class="ak-btn ak-btn--sm ak-btn--primary" data-act="approve" data-id="${ev.id}">通过</button>
+        <button class="ak-btn ak-btn--sm ak-btn--danger" data-act="reject" data-id="${ev.id}">驳回</button>
+      </div>`;
+    box.appendChild(item);
+  }
+  box.querySelectorAll('button[data-act]').forEach((b) => {
+    b.onclick = () => reviewAction(b.dataset.id, b.dataset.act);
+  });
+}
+window.openReviewQueue = openReviewQueue;
+
+async function reviewAction(id, action) {
+  const r = await api('/api/admin/review/' + id, { method: 'POST', body: JSON.stringify({ action }) });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || '操作失败'); return; }
+  toast(action === 'approve' ? '已通过' : '已驳回');
+  loadEvents();
+  openReviewQueue();
+}
+window.reviewAction = reviewAction;
+
+/* ---------------- 用户管理（站长） ---------------- */
+async function openUserAdmin() {
+  const r = await api('/api/admin/users');
+  if (!r.ok) { toast('无权限'); return; }
+  const users = await r.json();
+  const cur = state.user;
+  openModal(`
+    <div class="modal-title">用户管理</div>
+    <div class="modal-sub">仅站长可设置管理员 / 站长角色</div>
+    <div class="user-admin-list">
+      ${users.map((u) => `
+        <div class="ua-row">
+          <span class="ua-name">${esc(u.display_name || u.username)} <small>${esc(u.amid || '')}</small></span>
+          <select class="ua-role" data-id="${u.id}">
+            ${['user', 'organizer', 'admin', 'site_admin'].map((rl) => `<option value="${rl}" ${u.role === rl ? 'selected' : ''}>${roleLabel(rl)}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+    </div>
+    <div class="modal-actions"><button class="ak-btn ak-btn--ghost" onclick="closeModal()">关闭</button></div>`);
+  document.querySelectorAll('.ua-role').forEach((sel) => {
+    sel.onchange = async () => {
+      const id = Number(sel.dataset.id);
+      const role = sel.value;
+      const rr = await api('/api/admin/users/' + id + '/role', { method: 'POST', body: JSON.stringify({ role }) });
+      const d = await rr.json();
+      if (!rr.ok) { toast(d.error || '设置失败'); sel.value = users.find((u) => u.id === id).role; return; }
+      toast('已设为' + roleLabel(role));
+      if (id === cur.id) { state.user = { ...state.user, role }; renderAuth(); }
+    };
+  });
+}
+window.openUserAdmin = openUserAdmin;
 
 /* ---------------- 弹窗框架 ---------------- */
 function openModal(html) {
@@ -417,8 +622,9 @@ function openAuth(mode) {
   const isLogin = mode === 'login';
   openModal(`
     <div class="modal-title">${isLogin ? '博士登录' : '加入集会'}</div>
-    <div class="modal-sub">${isLogin ? '登录以标记与提交漫展' : '注册一个身份，用于确认你的提交'}</div>
-    <div class="field"><label>昵称</label><input id="au-name" placeholder="2-20 个字符" /></div>
+    <div class="modal-sub">${isLogin ? '用昵称或邮箱登录' : '注册一个身份（AMID），用于确认你的提交'}</div>
+    <div class="field"><label>${isLogin ? '昵称 / 邮箱' : '昵称 *'}</label><input id="au-name" placeholder="${isLogin ? '昵称或邮箱' : '2-20 个字符'}" /></div>
+    ${!isLogin ? '<div class="field"><label>邮箱（可选，作为登录名）</label><input id="au-email" type="email" placeholder="you@example.com" /></div>' : ''}
     <div class="field"><label>密码</label><input id="au-pass" type="password" placeholder="至少 6 位" /></div>
     <div class="modal-error" id="au-error"></div>
     <div class="modal-actions">
@@ -434,9 +640,11 @@ function openAuth(mode) {
 async function submitAuth(isLogin) {
   const username = document.getElementById('au-name').value.trim();
   const password = document.getElementById('au-pass').value;
+  const emailEl = document.getElementById('au-email');
+  const email = emailEl ? emailEl.value.trim() : '';
   const err = document.getElementById('au-error');
   const r = await api(isLogin ? '/api/auth/login' : '/api/auth/register', {
-    method: 'POST', body: JSON.stringify({ username, password }),
+    method: 'POST', body: JSON.stringify({ username, password, email }),
   });
   const d = await r.json();
   if (!r.ok) { err.textContent = d.error || '操作失败'; return; }
@@ -467,20 +675,25 @@ async function deleteEvent(id) {
 }
 window.deleteEvent = deleteEvent;
 
-function openForm(ev) {
-  const isEdit = !!ev;
+function openForm(ev, opts = {}) {
+  const isEdit = !!ev && !opts.supplementOf;
+  const sup = opts.supplementOf || null;
+  const isSupplement = !!sup;
   state._picked = null;
   if (state.pickMarker) { state.pickMarker.setMap(null); state.pickMarker = null; }
-  const v = (k) => (ev && ev[k] != null ? ev[k] : '');
-  const tagsVal = ev && Array.isArray(ev.tags) ? ev.tags.join('、') : '';
+  const src = sup || ev; // 预填来源：补充模式取原活动
+  const v = (k) => (src && src[k] != null ? src[k] : '');
+  const tagsVal = src && Array.isArray(src.tags) ? src.tags.join('、') : '';
   let dateVal = '';
-  if (ev) {
-    if (ev.start_date && ev.end_date && ev.end_date !== ev.start_date) dateVal = `${ev.start_date} ~ ${ev.end_date}`;
-    else dateVal = ev.start_date || ev.end_date || '';
+  if (src) {
+    if (src.start_date && src.end_date && src.end_date !== src.start_date) dateVal = `${src.start_date} ~ ${src.end_date}`;
+    else dateVal = src.start_date || src.end_date || '';
   }
+  const hasCoord = src && src.longitude != null;
   openModal(`
-    <div class="modal-title">${isEdit ? '编辑漫展' : '提交新漫展'}</div>
-    <div class="modal-sub">${isEdit ? '修改你提交的活动信息' : '填写活动信息，提交后将在地图上出现'}</div>
+    <div class="modal-title">${isSupplement ? '补充集会信息' : isEdit ? '编辑漫展' : '提交新漫展'}</div>
+    <div class="modal-sub">${isSupplement ? '审核通过后，你填写的内容将合并进原活动' : isEdit ? '修改你提交的活动信息' : '填写活动信息，提交后将在地图上出现'}</div>
+    ${isSupplement ? '<div class="supplement-banner">补充模式：仅填写需要更正 / 新增的字段，审核通过后合并到原活动。</div>' : ''}
     <div class="field"><label>活动名称 *</label><input id="f-title" value="${esc(v('title'))}" placeholder="如：罗德岛上海 ONLY" /></div>
     <div class="field"><label>举办日期</label><input id="f-date" type="text" value="${esc(dateVal)}" placeholder="如 2026-07-26 或 2026-07-26 ~ 2026-07-27" /></div>
     <div class="field-row">
@@ -498,15 +711,16 @@ function openForm(ev) {
     <div class="field"><label>介绍</label><textarea id="f-desc" placeholder="活动简介、亮点、交通等">${esc(v('description'))}</textarea></div>
     <div class="field">
       <label>地图定位（自动）</label>
-      <div class="coord-pick" id="f-coord">${isEdit && ev.longitude != null ? `已定位：${ev.longitude}, ${ev.latitude}` : '填写城市 / 详细地址后将自动解析落点'}</div>
+      <div class="coord-pick" id="f-coord">${hasCoord ? `已定位：${src.longitude}, ${src.latitude}` : '填写城市 / 详细地址后将自动解析落点'}</div>
     </div>
+    ${isSupplement ? `<input type="hidden" id="f-sub-type" value="supplement" /><input type="hidden" id="f-parent" value="${sup.id}" />` : ''}
     <div class="modal-error" id="f-error"></div>
     <div class="modal-actions">
-      <button class="ak-btn ak-btn--primary" id="f-submit">${isEdit ? '保存' : '提交'}</button>
+      <button class="ak-btn ak-btn--primary" id="f-submit">${isSupplement ? '提交补充' : isEdit ? '保存' : '提交'}</button>
       <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
     </div>`);
 
-  document.getElementById('f-submit').onclick = () => submitForm(ev);
+  document.getElementById('f-submit').onclick = () => submitForm(ev, opts);
   wireAddressAutolocate();
 }
 
@@ -558,7 +772,7 @@ function setPicked(lng, lat) {
   state._picked = { longitude: lng, latitude: lat };
 }
 
-async function submitForm(ev) {
+async function submitForm(ev, opts = {}) {
   const err = document.getElementById('f-error');
   const title = document.getElementById('f-title').value.trim();
   if (!title) { err.textContent = '请填写活动名称'; return; }
@@ -578,8 +792,13 @@ async function submitForm(ev) {
     description: document.getElementById('f-desc').value.trim() || null,
     tags,
   };
+  const isEdit = !!ev && !opts.supplementOf;
+  const isSupplement = !!(opts && opts.supplementOf);
+  if (isSupplement) {
+    payload.submission_type = 'supplement';
+    payload.parent_event_id = opts.supplementOf.id;
+  }
   if (state._picked) { payload.longitude = state._picked.longitude; payload.latitude = state._picked.latitude; }
-  const isEdit = !!ev;
   const url = isEdit ? `/api/events/${ev.id}` : '/api/events';
   const r = await api(url, { method: isEdit ? 'PUT' : 'POST', body: JSON.stringify(payload) });
   const d = await r.json();
@@ -587,9 +806,17 @@ async function submitForm(ev) {
   closeModal();
   state._picked = null;
   if (state.pickMarker) { state.pickMarker.setMap(null); state.pickMarker = null; }
-  toast(isEdit ? '已保存' : '提交成功，感谢贡献！');
+  if (isSupplement || d.pending) toast('已提交，等待管理员审核');
+  else if (isEdit) toast('已保存');
+  else toast('提交成功，感谢贡献！');
   loadEvents();
 }
+
+function openSupplement(parentEv) {
+  if (!state.user) { openAuth('login'); return; }
+  openForm(null, { supplementOf: parentEv });
+}
+window.openSupplement = openSupplement;
 
 /* ---------------- 事件绑定 ---------------- */
 function bindUI() {

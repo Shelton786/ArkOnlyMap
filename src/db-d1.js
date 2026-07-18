@@ -58,10 +58,11 @@ export async function initSchema(db) {
 }
 
 // ---------------- users ----------------
-export async function createUser(db, username, passwordHash, role = 'user') {
+export async function createUser(db, { username, passwordHash, role = 'user', email = null, displayName = null, amid = null }) {
+  if (!amid) amid = await generateUniqueAmid(db);
   const info = await db
-    .prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)')
-    .bind(username, passwordHash, role)
+    .prepare('INSERT INTO users (username, password_hash, role, email, display_name, amid) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(username, passwordHash, role, email || null, displayName || username, amid)
     .run();
   return getUserById(db, Number(info.meta.last_row_id));
 }
@@ -71,7 +72,15 @@ export async function getUserByName(db, username) {
 }
 
 export async function getUserById(db, id) {
-  return db.prepare('SELECT id, username, role, created_at FROM users WHERE id = ?').bind(id).first();
+  return db
+    .prepare('SELECT id, username, amid, email, display_name, role, email_verified, created_at FROM users WHERE id = ?')
+    .bind(id)
+    .first();
+}
+
+export async function getUserByEmail(db, email) {
+  if (!email) return null;
+  return db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
 }
 
 export async function countUsers(db) {
@@ -79,8 +88,71 @@ export async function countUsers(db) {
   return r ? r.n : 0;
 }
 
+// 生成「AM-」+ 8 位唯一数字（与现有 amid 不冲突）
+export async function generateUniqueAmid(db) {
+  const taken = new Set(
+    (await db.prepare('SELECT amid FROM users WHERE amid IS NOT NULL').all()).results?.map((r) => r.amid) || []
+  );
+  let amid;
+  do {
+    amid = 'AM-' + String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
+  } while (taken.has(amid));
+  return amid;
+}
+
+// ---------------- auth_identities（多登录方式） ----------------
+export async function createIdentity(db, userId, provider, providerAccountId, providerUsername = null, verified = 0) {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO auth_identities (user_id, provider, provider_account_id, provider_username, verified)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(userId, provider, String(providerAccountId), providerUsername, verified)
+    .run();
+}
+
+export async function getIdentities(db, userId) {
+  const r = await db.prepare('SELECT provider, provider_account_id, provider_username, verified FROM auth_identities WHERE user_id = ?').bind(userId).all();
+  return r.results || [];
+}
+
+export async function getIdentity(db, provider, providerAccountId) {
+  return db
+    .prepare('SELECT * FROM auth_identities WHERE provider = ? AND provider_account_id = ?')
+    .bind(provider, String(providerAccountId))
+    .first();
+}
+
+export async function deleteIdentity(db, userId, provider) {
+  await db.prepare('DELETE FROM auth_identities WHERE user_id = ? AND provider = ?').bind(userId, provider).run();
+}
+
+// 更新用户资料（display_name / email）
+export async function updateUser(db, id, { displayName, email }) {
+  const sets = [];
+  const vals = [];
+  if (displayName !== undefined) { sets.push('display_name = ?'); vals.push(displayName); }
+  if (email !== undefined) { sets.push('email = ?'); sets.push('email_verified = 0'); vals.push(email || null); }
+  if (!sets.length) return getUserById(db, id);
+  vals.push(id);
+  await db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...vals).run();
+  return getUserById(db, id);
+}
+
+export async function setUserRole(db, id, role) {
+  await db.prepare('UPDATE users SET role = ? WHERE id = ?').bind(role, id).run();
+  return getUserById(db, id);
+}
+
+export async function listUsers(db) {
+  const r = await db
+    .prepare('SELECT id, username, amid, email, display_name, role, email_verified, created_at FROM users ORDER BY id')
+    .all();
+  return r.results || [];
+}
+
 // ---------------- conventions ----------------
-export async function listEvents(db, { q, city, status, province, page = 1, limit = 200, withCoordsOnly = false } = {}) {
+export async function listEvents(db, { q, city, status, province, page = 1, limit = 200, withCoordsOnly = false, review = 'public' } = {}) {
   const where = [];
   const bindVals = []; // 与 where 顺序一一对应的位置参数值
   if (q) {
@@ -102,6 +174,12 @@ export async function listEvents(db, { q, city, status, province, page = 1, limi
   }
   if (withCoordsOnly) {
     where.push('c.longitude IS NOT NULL AND c.latitude IS NOT NULL');
+  }
+  // 审核状态过滤：默认仅返回「已确认 + 未确认（公开）」，不返回 merged（已合并）/ rejected（驳回）
+  if (review === 'all') {
+    where.push("c.review_status IN ('approved', 'pending', 'rejected')");
+  } else {
+    where.push("c.review_status IN ('approved', 'pending')");
   }
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const totalRow = await db
@@ -142,20 +220,89 @@ function parseRow(r) {
 
 export async function createEvent(db, data) {
   const n = normalizeEvent(data);
+  // 审核 / 认领相关字段（带安全默认值）
+  n.review_status = data.review_status || 'approved';
+  n.submission_type = data.submission_type || 'new';
+  n.parent_event_id = data.parent_event_id != null ? Number(data.parent_event_id) : null;
+  n.organizer_user_id = data.organizer_user_id != null ? Number(data.organizer_user_id) : null;
+  n.organizer_claim_status = data.organizer_claim_status || 'none';
+  n.submitted_by = data.submitted_by != null ? Number(data.submitted_by) : null;
   const info = await db
     .prepare(
       `INSERT INTO conventions
        (title, start_date, end_date, province, city, venue, address, longitude, latitude,
-        description, organizer, source_url, poster_url, verified, tags, submitted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        description, organizer, source_url, poster_url, verified, tags, submitted_by,
+        review_status, submission_type, parent_event_id, organizer_user_id, organizer_claim_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       n.title, n.start_date, n.end_date, n.province, n.city, n.venue, n.address,
       n.longitude, n.latitude, n.description, n.organizer, n.source_url, n.poster_url,
-      n.verified, n.tags, n.submitted_by
+      n.verified, n.tags, n.submitted_by,
+      n.review_status, n.submission_type, n.parent_event_id, n.organizer_user_id, n.organizer_claim_status
     )
     .run();
   return getEvent(db, Number(info.meta.last_row_id));
+}
+
+// ---------------- 审核 / 认领 ----------------
+export async function listPendingEvents(db) {
+  const r = await db
+    .prepare(
+      `${BASE_SELECT} WHERE c.review_status = 'pending' ORDER BY c.created_at ASC`
+    )
+    .all();
+  return (r.results || []).map(parseRow);
+}
+
+// 审核通过「新建」：转 approved
+export async function approveNewEvent(db, id) {
+  await db.prepare("UPDATE conventions SET review_status = 'approved' WHERE id = ? AND review_status = 'pending'").bind(id).run();
+  return getEvent(db, id);
+}
+
+// 审核驳回：转 rejected（仅管理员可见）
+export async function rejectEvent(db, id) {
+  await db.prepare("UPDATE conventions SET review_status = 'rejected' WHERE id = ? AND review_status = 'pending'").bind(id).run();
+  return getEvent(db, id);
+}
+
+// 审核通过「补充」：把补充行的非空字段合并进原活动，补充行标记 merged
+export async function mergeSupplement(db, supplementId) {
+  const sup = await getEvent(db, supplementId);
+  if (!sup || sup.submission_type !== 'supplement' || !sup.parent_event_id) return null;
+  const parent = await getEvent(db, sup.parent_event_id);
+  if (!parent) return null;
+
+  const SCALAR = ['title', 'start_date', 'end_date', 'province', 'city', 'venue', 'address', 'longitude', 'latitude', 'organizer', 'source_url', 'poster_url', 'tags'];
+  const merged = { ...parent };
+  for (const k of SCALAR) {
+    if (sup[k] != null && sup[k] !== '') merged[k] = sup[k];
+  }
+  // 描述类字段：补充内容追加到原活动
+  if (sup.description != null && sup.description !== '') {
+    merged.description = (parent.description ? parent.description + '\n\n' : '') + '【信息补充】\n' + sup.description;
+  }
+  await updateEvent(db, parent.id, merged);
+  // 补充行标记 merged（不再单独展示）
+  await db.prepare("UPDATE conventions SET review_status = 'merged' WHERE id = ?").bind(supplementId).run();
+  return getEvent(db, parent.id);
+}
+
+export async function requestClaim(db, id, userId) {
+  await db
+    .prepare("UPDATE conventions SET organizer_claim_status = 'pending' WHERE id = ? AND organizer_claim_status = 'none'")
+    .bind(id)
+    .run();
+  return getEvent(db, id);
+}
+
+export async function approveClaim(db, id, userId) {
+  await db
+    .prepare("UPDATE conventions SET organizer_claim_status = 'approved', organizer_user_id = ? WHERE id = ? AND organizer_claim_status = 'pending'")
+    .bind(userId, id)
+    .run();
+  return getEvent(db, id);
 }
 
 export async function updateEvent(db, id, data) {
