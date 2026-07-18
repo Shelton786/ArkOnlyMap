@@ -1,3 +1,21 @@
+/*
+ * ArkOnlyMap —— 舟友同好集会地图
+ * Copyright © 2026 Booker786
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 // 本地集成测试：用真实 Hono 应用 + 内存 SQLite 充当 D1，验证路由与 SQL。
 // 无需 Cloudflare 账号即可运行： npm run test:local
 import Database from 'better-sqlite3';

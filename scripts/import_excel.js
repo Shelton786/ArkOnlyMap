@@ -1,3 +1,21 @@
+/*
+ * ArkOnlyMap —— 舟友同好集会地图
+ * Copyright © 2026 Booker786
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 'use strict';
 /**
  * 数据导入脚本：Excel(.xlsx) / CSV / 腾讯文档导出的 CSV 链接 -> 数据库

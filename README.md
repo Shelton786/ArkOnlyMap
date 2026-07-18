@@ -6,7 +6,7 @@
 
 地图：高德地图 JS API ｜🌐 线上演示：[arkonlymap.pages.dev](https://arkonlymap.pages.dev/)
 
-📄 开源协议：[GPL-3.0](./LICENSE.txt) © 2026 Shelton786
+📄 开源协议：[GPL-3.0](./LICENSE.txt) © 2026 Booker786
 
 ---
 
@@ -356,6 +356,6 @@ Node 自托管形态（`server/`）则用 `.env` 文件：`PORT`、`SESSION_SECR
 
 - 许可证全文：[LICENSE.txt](./LICENSE.txt)
 - SPDX 标识：`GPL-3.0-or-later`
-- 版权：Copyright © 2026 Shelton786
+- 版权：Copyright © 2026 Booker786
 
 在 GPLv3 条款下，你可自由使用、研究、修改和分发本项目的源代码；若分发**修改后的版本**，须同样以 GPLv3 开源（这就是 GPL 的「copyleft」传染性）。
