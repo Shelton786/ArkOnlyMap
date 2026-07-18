@@ -15,6 +15,10 @@ const state = {
 
 const STATUS_TEXT = { upcoming: '即将举办', ongoing: '进行中', past: '已结束', unknown: '待定' };
 
+// 默认地图视图：长三角（南京—上海之间），解决“一进来太大看不清”的问题
+const DEFAULT_CENTER = [119.6, 31.6];
+const DEFAULT_ZOOM = 7;
+
 /* ---------------- 工具 ---------------- */
 function esc(s) {
   return String(s == null ? '' : s)
@@ -78,7 +82,7 @@ function loadAmap() {
     }
     window._AMapSecurityConfig = { securityJsCode: state.config.amapSecurityCode };
     const s = document.createElement('script');
-    s.src = `https://webapi.amap.com/maps?v=2.0&key=${state.config.amapKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geocoder`;
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${state.config.amapKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geocoder,AMap.AutoComplete`;
     s.onload = () => resolve(true);
     s.onerror = () => { resolve(false); };
     document.head.appendChild(s);
@@ -86,7 +90,7 @@ function loadAmap() {
 }
 function initMap() {
   const map = new AMap.Map('map', {
-    zoom: 4.4, center: [104, 35], mapStyle: 'amap://styles/normal',
+    zoom: DEFAULT_ZOOM, center: DEFAULT_CENTER, mapStyle: 'amap://styles/normal',
     viewMode: '2D',
   });
   map.addControl(new AMap.Scale());
@@ -137,10 +141,10 @@ async function loadCities() {
 }
 
 /* ---------------- 列表 ---------------- */
-function applyFilters() {
+function visibleEvents() {
   const { q, city, status } = state.filters;
   const ql = q.trim().toLowerCase();
-  const list = state.events.filter((ev) => {
+  return state.events.filter((ev) => {
     if (city && ev.city !== city) return false;
     if (status && ev.status !== status) return false;
     if (ql) {
@@ -149,8 +153,13 @@ function applyFilters() {
     }
     return true;
   });
-  renderList(sortEvents(list));
+}
+// 列表与地图标记共用同一套筛选：筛选时同步隐藏标记，避免堆叠看不清
+function applyFilters() {
+  const list = sortEvents(visibleEvents());
+  renderList(list);
   document.getElementById('count').textContent = `${list.length} 个活动`;
+  renderMarkers(list);
 }
 // 列表排序：按状态分组（进行中/即将举办在上，已举办在下）；
 // 组内「即将举办/进行中」按开始日期升序（最近的在前），「已举办」按开始日期降序（最新的在前）。
@@ -205,12 +214,13 @@ function markerHtml(ev) {
       <span class="pin"></span>
     </div>`;
 }
+const MARKER_Z = { upcoming: 300, ongoing: 300, past: 100, unknown: 100 };
 function addMarker(ev) {
   if (ev.longitude == null || ev.latitude == null) return;
   const marker = new AMap.Marker({
     position: [ev.longitude, ev.latitude],
     content: markerHtml(ev), anchor: 'center',
-    zIndex: ev.id === state.selectedId ? 200 : 100,
+    zIndex: ev.id === state.selectedId ? 400 : (MARKER_Z[ev.status] || 100),
   });
   marker.on('click', () => { openDetail(ev); });
   marker.setMap(state.map);
@@ -250,23 +260,25 @@ async function geocodeAll() {
     if (g) { ev.longitude = g.longitude; ev.latitude = g.latitude; ev._geoDone = true; addMarker(ev); await saveCoords(ev); done++; }
     else ev._geoDone = true;
   }
-  renderMarkers();
+  renderMarkers(visibleEvents());
   if (btn) { btn.disabled = false; btn.textContent = '📍 补全坐标'; }
   toast(`已补全 ${done} 个坐标`);
 }
-function renderMarkers() {
+function renderMarkers(list) {
   if (!state.map) return;
+  const items = (list && list.length !== undefined) ? list : state.events;
   for (const m of state.markers.values()) m.setMap(null);
   state.markers.clear();
-  for (const ev of state.events) {
+  for (const ev of items) {
     if (ev.longitude != null && ev.latitude != null) addMarker(ev);
   }
   // 缺坐标的活动：在浏览器端顺序地理编码（带间隔，避免限流），登录用户自动回写
-  geocodeMissingOnLoad();
+  geocodeMissingOnLoad(items);
 }
-async function geocodeMissingOnLoad() {
+async function geocodeMissingOnLoad(items) {
   if (state._geoRunning) return;
-  const missing = state.events.filter(
+  const list = (items && items.length !== undefined) ? items : state.events;
+  const missing = list.filter(
     (e) => (e.longitude == null || e.latitude == null) && e.address && !e._geoStarted
   );
   if (!missing.length) return;
@@ -293,19 +305,28 @@ async function geocodeMissingOnLoad() {
     if (overlay) overlay.classList.add('hidden');
     state._geoRunning = false;
   }
-  renderMarkers();
+  renderMarkers(list);
   if (resolved) toast(`已自动定位 ${resolved} 个活动坐标`);
 }
 function flyTo(ev) {
   if (!state.map || ev.longitude == null) return;
   state.map.setZoomAndCenter(14, [ev.longitude, ev.latitude]);
 }
+// 城市筛选切换后，自动框选到该城市的标记；取消城市则回到默认长三角视图
+function frameToCity() {
+  if (!state.map) return;
+  const ms = [...state.markers.values()];
+  if (state.filters.city && ms.length) {
+    state.map.setFitView(ms, false, [50, 50, 50, 50]);
+  } else if (!state.filters.city) {
+    state.map.setZoomAndCenter(DEFAULT_ZOOM, DEFAULT_CENTER);
+  }
+}
 
 /* ---------------- 详情 ---------------- */
 function openDetail(ev) {
   state.selectedId = ev.id;
-  renderList((state.events || []).filter(() => true)); // 仅刷新激活态
-  applyFilters();
+  applyFilters(); // 同步刷新列表激活态与标记层级
   const p = ev.poster_url ? `<img class="detail-poster" src="${esc(safeUrl(ev.poster_url))}" onerror="this.style.display='none'"/>` : '';
   const link = safeUrl(ev.source_url) ? `<a class="detail-link" href="${esc(ev.source_url)}" target="_blank" rel="noopener">查看官方信息 ↗</a>` : '';
   const tags = Array.isArray(ev.tags) ? ev.tags : [];
@@ -329,18 +350,16 @@ function openDetail(ev) {
       <div class="detail-actions">
         ${link}
         ${canEdit(ev) ? `<button class="ak-btn ak-btn--sm" onclick="openEdit(${ev.id})">编辑</button>` : ''}
+        ${canEdit(ev) ? `<button class="ak-btn ak-btn--sm ak-btn--danger" onclick="deleteEvent(${ev.id})">删除</button>` : ''}
       </div>
     </div>`;
   panel.classList.remove('hidden');
-  // 刷新标记选中态
-  renderMarkers();
 }
 function row(k, v) { return `<div class="row"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`; }
 function closeDetail() {
   state.selectedId = null;
   document.getElementById('detail-panel').classList.add('hidden');
   applyFilters();
-  renderMarkers();
 }
 function canEdit(ev) {
   return state.user && (state.user.role === 'admin' || ev.submitted_by === state.user.id);
@@ -441,6 +460,16 @@ function openEdit(id) {
 }
 window.openEdit = openEdit;
 
+async function deleteEvent(id) {
+  if (!confirm('确定删除该集会？此操作不可撤销。')) return;
+  const r = await api(`/api/events/${id}`, { method: 'DELETE' });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || '删除失败'); return; }
+  toast('已删除');
+  closeDetail();
+  loadEvents();
+}
+window.deleteEvent = deleteEvent;
+
 function openForm(ev) {
   const isEdit = !!ev;
   state.pickMode = false;
@@ -485,6 +514,39 @@ function openForm(ev) {
   pickBtn.onclick = togglePick;
 
   document.getElementById('f-submit').onclick = () => submitForm(ev);
+  wireAddressAutolocate();
+}
+
+function wireAddressAutolocate() {
+  const addrEl = document.getElementById('f-address');
+  const cityEl = document.getElementById('f-city');
+  if (!addrEl) return;
+  if (window.AMap && AMap.AutoComplete) {
+    try {
+      const ac = new AMap.AutoComplete({ input: 'f-address' });
+      ac.on('select', (e) => {
+        if (e && e.poi && e.poi.location) {
+          const loc = e.poi.location;
+          const lng = typeof loc === 'string' ? Number(loc.split(',')[0]) : (loc.lng != null ? loc.lng : loc.getLng());
+          const lat = typeof loc === 'string' ? Number(loc.split(',')[1]) : (loc.lat != null ? loc.lat : loc.getLat());
+          if (!isNaN(lng) && !isNaN(lat)) setPicked(lng, lat);
+        }
+      });
+    } catch (_) { /* AutoComplete 不可用时忽略 */ }
+  }
+  let t;
+  const preview = () => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      const addr = addrEl.value.trim();
+      const city = cityEl ? cityEl.value.trim() : '';
+      if (!addr) return;
+      const g = await geocodeClient({ address: addr, city });
+      if (g) setPicked(g.longitude, g.latitude);
+    }, 600);
+  };
+  addrEl.addEventListener('input', preview);
+  if (cityEl) cityEl.addEventListener('input', preview);
 }
 
 function togglePick() {
@@ -558,7 +620,10 @@ function bindUI() {
     state.filters.q = e.target.value; applyFilters();
   });
   document.getElementById('city-select').addEventListener('change', (e) => {
-    state.filters.city = e.target.value; applyFilters();
+    state.filters.city = e.target.value; applyFilters(); frameToCity();
+  });
+  document.getElementById('close-list').addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.remove('open');
   });
   document.querySelectorAll('#status-tabs .tab').forEach((t) => {
     t.addEventListener('click', () => {

@@ -331,6 +331,19 @@ body {
 
 .mobile-only { display: none; }
 
+/* 移动端：收起列表按钮 */
+.close-list {
+  position: absolute; top: 10px; right: 10px; z-index: 25;
+  width: 34px; height: 34px; padding: 0; font-size: 16px; line-height: 1;
+}
+
+/* 危险操作按钮（删除集会） */
+.ak-btn--danger {
+  background: linear-gradient(180deg, #e06a6a, #b83b3b);
+  border-color: #e06a6a; color: #fff;
+}
+.ak-btn--danger:hover { filter: brightness(1.08); }
+
 /* ---------------- 响应式 ---------------- */
 @media (max-width: 860px) {
   .sidebar {
