@@ -461,8 +461,7 @@ function renderAuth() {
     document.getElementById('btn-logout').onclick = logout;
     if (isAdmin) document.getElementById('btn-review').onclick = openReviewQueue;
     if (u.role === 'site_admin') document.getElementById('btn-users').onclick = openUserAdmin;
-    submitBtn.style.display = '';
-    submitBtn.onclick = () => openSubmit();
+    if (submitBtn) { submitBtn.style.display = ''; submitBtn.onclick = () => openSubmit(); }
     const gb = document.getElementById('btn-geocode');
     if (gb) {
       if (isAdmin) { gb.classList.remove('hidden'); gb.onclick = geocodeAll; } else gb.classList.add('hidden');
@@ -473,7 +472,7 @@ function renderAuth() {
       <button class="ak-btn ak-btn--primary ak-btn--sm" id="btn-register">注册</button>`;
     document.getElementById('btn-login').onclick = () => openAuth('login');
     document.getElementById('btn-register').onclick = () => openAuth('register');
-    submitBtn.style.display = 'none';
+    if (submitBtn) submitBtn.style.display = 'none';
     const gb = document.getElementById('btn-geocode');
     if (gb) gb.classList.add('hidden');
   }
