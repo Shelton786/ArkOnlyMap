@@ -6,6 +6,8 @@
 
 地图：高德地图 JS API ｜🌐 线上演示：[arkonlymap.pages.dev](https://arkonlymap.pages.dev/)
 
+📄 开源协议：[GPL-3.0](./LICENSE.txt) © 2026 Shelton786
+
 ---
 
 ## ✨ 功能特性
@@ -345,3 +347,15 @@ Node 自托管形态（`server/`）则用 `.env` 文件：`PORT`、`SESSION_SECR
 - 管理员审核流（标记 `verified`）
 - 真正的腾讯文档实时同步（开放 API + 定时任务）
 - 移动端 PWA / 小程序
+
+---
+
+## 📄 许可证
+
+本项目以 **GNU General Public License v3.0（GPL-3.0）** 开源。
+
+- 许可证全文：[LICENSE.txt](./LICENSE.txt)
+- SPDX 标识：`GPL-3.0-or-later`
+- 版权：Copyright © 2026 Shelton786
+
+在 GPLv3 条款下，你可自由使用、研究、修改和分发本项目的源代码；若分发**修改后的版本**，须同样以 GPLv3 开源（这就是 GPL 的「copyleft」传染性）。
