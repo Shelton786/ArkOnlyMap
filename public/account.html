@@ -11,6 +11,14 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <style>
     /* 账户页专用布局 */
+    /* 覆盖 style.css 里 html,body 的 fixed+overflow:hidden —— 那条规则是为地图主页防缩放偏移服务的，
+       账户页没有地图，需要整体可滚动，否则底部「管理功能」会被裁剪看不见。 */
+    html, body {
+      position: static !important;
+      height: auto !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
     .account-page {
       min-height: 100vh;
       display: flex;
@@ -29,6 +37,9 @@
       background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(13,21,48,0.85));
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(6px);
+      position: sticky;
+      top: 0;
+      z-index: 40;
     }
     .acct-brand { display: flex; align-items: baseline; gap: 10px; }
     .acct-title {
