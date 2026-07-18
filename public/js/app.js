@@ -97,11 +97,31 @@ function initMap() {
   const map = new AMap.Map('map', {
     zoom: DEFAULT_ZOOM, center: DEFAULT_CENTER, mapStyle: 'amap://styles/normal',
     viewMode: '2D',
+    resizeEnable: true, /* 启用 AMap 自适应容器尺寸变化 */
   });
   map.addControl(new AMap.Scale());
   map.addControl(new AMap.ToolBar({ position: 'RB' }));
   state.map = map;
   renderMarkers();
+
+  // 缩放/旋屏时强制地图重新适配容器（修复移动端缩放后布局崩坏）
+  let _resizeTimer;
+  const scheduleResize = () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      if (state.map && !state.map._destroyed) {
+        state.map.setSize();
+        state.map.setFitView(false);
+      }
+    }, 200);
+  };
+  window.addEventListener('resize', scheduleResize);
+  window.addEventListener('orientationchange', () => { setTimeout(scheduleResize, 300); });
+
+  // 视觉视口变化时也触发（移动端双指缩放/地址栏显隐）
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleResize);
+  }
 }
 
 /* ---------------- 数据 ---------------- */
@@ -430,16 +450,14 @@ function renderAuth() {
     const u = state.user;
     const isAdmin = u.role === 'admin' || u.role === 'site_admin';
     area.innerHTML = `
-      <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-account">账户中心</button>
-      ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-review">审核队列</button>' : ''}
-      ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
-      <div class="user-chip">
+      <a href="/account.html" class="user-chip" style="cursor:pointer;text-decoration:none;" title="账户中心">
         <span class="avatar">${esc((u.display_name || u.username).slice(0, 1))}</span>
         <span>${esc(u.display_name || u.username)}</span>
         <span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>
-      </div>
+      </a>
+      ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-review">审核</button>' : ''}
+      ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;
-    document.getElementById('btn-account').onclick = openAccountCenter;
     document.getElementById('btn-logout').onclick = logout;
     if (isAdmin) document.getElementById('btn-review').onclick = openReviewQueue;
     if (u.role === 'site_admin') document.getElementById('btn-users').onclick = openUserAdmin;
@@ -848,6 +866,9 @@ function bindUI() {
   bindUI();
   await loadConfig();
   await loadMe();
+  // 从账户页跳回时自动打开指定面板
+  const openTab = sessionStorage.getItem('ark_openTab');
+  if (openTab) { sessionStorage.removeItem('ark_openTab'); }
   await loadEvents();
   const ok = await loadAmap();
   if (ok) {
@@ -855,6 +876,9 @@ function bindUI() {
     const wait = setInterval(() => {
       if (window.AMap && document.getElementById('map')) {
         clearInterval(wait); initMap();
+        // 延迟打开面板（等地图和用户态就绪）
+        if (openTab === 'review' && state.user) { setTimeout(() => openReviewQueue(), 300); }
+        else if (openTab === 'users' && state.user) { setTimeout(() => openUserAdmin(), 300); }
       }
     }, 80);
   }

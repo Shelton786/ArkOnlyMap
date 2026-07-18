@@ -150,6 +150,20 @@ export function createApp() {
     return c.json({ user: shapeUser(u, identities) });
   });
 
+  // 修改密码
+  app.post('/api/auth/password', auth.requireAuth, async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const oldPwd = body.old_password || '';
+    const newPwd = body.new_password || '';
+    if (!oldPwd || !newPwd) return c.json({ error: '请填写当前密码和新密码' }, 400);
+    if (newPwd.length < 6) return c.json({ error: '新密码至少 6 位' }, 400);
+    const user = await db.getUserById(c.env.DB, c.get('user').id);
+    if (!user || !auth.verifyPassword(oldPwd, user.password_hash)) return c.json({ error: '当前密码错误' }, 401);
+    await c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+      .bind(auth.hashPassword(newPwd), user.id).run();
+    return c.json({ ok: true });
+  });
+
   // ---------------- 活动 ----------------
   app.get('/api/events/cities', async (c) => {
     return c.json(await db.allCities(c.env.DB));

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>账户中心 · 舟友同好集会地图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    /* 账户页专用布局 */
+    .account-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(74,171,234,0.10), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba(74,171,234,0.08), transparent 60%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1) 60%, var(--bg-2));
+    }
+    .acct-topbar {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(13,21,48,0.85));
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(6px);
+    }
+    .acct-brand { display: flex; align-items: baseline; gap: 10px; }
+    .acct-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #fff;
+    }
+    .acct-body {
+      flex: 1;
+      padding: 28px 20px;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    .acct-card {
+      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(7,11,22,0.95));
+      border: 1px solid var(--line);
+      clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+      padding: 24px 26px 28px;
+      margin-bottom: 24px;
+    }
+    .acct-card h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .acct-avatar-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .acct-avatar-lg {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--ak-primary), var(--ak-primary-dark));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #04111f;
+      font-weight: 700;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .acct-name-row { display: flex; align-items: center; gap: 10px; }
+    .acct-display-name { font-size: 20px; font-weight: 700; color: #fff; }
+    .acct-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .acct-actions .ak-btn { flex: 1; min-width: 120px; }
+
+    /* 未登录状态 */
+    .login-prompt {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+    }
+    .login-prompt .icon { font-size: 48px; margin-bottom: 16px; opacity: .4; }
+    .login-prompt p { font-size: 15px; margin-bottom: 24px; }
+
+    @media (max-width: 480px) {
+      .acct-topbar { padding: 0 12px; }
+      .acct-body { padding: 20px 14px; }
+      .acct-card { padding: 18px 18px 22px; }
+      .acct-title { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="account-page">
+    <header class="acct-topbar">
+      <div class="acct-brand">
+        <a href="/" style="color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px;">
+          <span class="logo" style="color:var(--ak-primary);font-size:18px;">◆</span>
+          <span class="acct-title">返回地图</span>
+        </a>
+      </div>
+      <div id="auth-area" class="auth-area"></div>
+    </header>
+
+    <div class="acct-body" id="acct-body">
+      <!-- 由 JS 渲染 -->
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    /* ---- 账户页面逻辑（依赖 app.js 的工具函数和 API） ---- */
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    async function loadAccount() {
+      try {
+        const r = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        const d = await r.json();
+        state.user = d.user || null;
+        renderAuth();
+        renderAccountPage(d.user);
+      } catch { renderAccountPage(null); }
+    }
+
+    function renderAccountPage(user) {
+      const body = document.getElementById('acct-body');
+      if (!user) {
+        body.innerHTML = `
+          <div class="login-prompt">
+            <div class="icon">🔒</div>
+            <p>请先登录以查看账户信息</p>
+            <button class="ak-btn ak-btn--primary" onclick="location.href='/'">去登录</button>
+          </div>`;
+        return;
+      }
+
+      const roleBadge = `<span class="role-badge ${roleClass(user.role)}">${roleLabel(user.role)}</span>`;
+
+      body.innerHTML = `
+        <!-- 基本信息 -->
+        <section class="acct-card" aria-label="基本信息">
+          <h2>身份信息</h2>
+          <div class="acct-avatar-row">
+            <div class="acct-avatar-lg">${esc((user.display_name || user.username || '?').slice(0,1))}</div>
+            <div class="acct-name-row">
+              <span class="acct-display-name">${esc(user.display_name || user.username || '未设置')}</span>
+              ${roleBadge}
+            </div>
+          </div>
+          <div class="ac-grid">
+            <div class="ac-row"><span class="k">AMID</span><span class="v amid">${esc(user.amid || '—')}</span></div>
+            <div class="ac-row"><span class="k">昵称</span><span class="v">${esc(user.username)}</span></div>
+            <div class="ac-row"><span class="k">邮箱</span><span class="v">${esc(user.email || '未绑定')}</span></div>
+            <div class="ac-row"><span class="k">展示名</span><span class="v" id="v-dn">${esc(user.display_name || '未设置')}</span></div>
+          </div>
+          <div class="acct-actions">
+            <button class="ak-btn ak-btn--ghost" id="btn-edit-profile">编辑资料</button>
+            <button class="ak-btn ak-btn--ghost" id="btn-change-pwd">修改密码</button>
+          </div>
+        </section>
+
+        <!-- 鹰角通行证 -->
+        <section class="acct-card" aria-label="鹰角通行证绑定">
+          <h2>鹰角通行证</h2>
+          <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.7;">
+            绑定你的鹰角通行证 UID（11 位数字），方便管理员核实身份。填写后需管理员审核。
+          </p>
+          <div class="ac-row">
+            <span class="k">UID</span>
+            <span class="v" id="v-hg-uid">${user.hypergryph_uid ? esc(user.hypergryph_uid) : '<span style="color:var(--text-mute)">未绑定</span>'}</span>
+          </div>
+          <div class="ac-row">
+            <span class="k">状态</span>
+            <span class="v" id="v-hg-status">${user.hypergryph_verified ? '<span class="bind-on">已验证 ✓</span>' : '<span style="color:var(--text-mute)">未验证</span>'}</span>
+          </div>
+          <div class="acct-actions" style="margin-top:14px;">
+            <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-bind-hg">${user.hypergryph_uid ? '重新绑定' : '绑定 UID'}</button>
+          </div>
+        </section>
+
+        <!-- 管理员入口 -->
+        ${(user.role === 'site_admin' || user.role === 'admin') ? `
+        <section class="acct-card" aria-label="管理功能">
+          <h2>管理功能</h2>
+          <div class="ac-binds">
+            <a href="/" onclick="sessionStorage.setItem('ark_openTab','review');return false;" class="bind-row" style="cursor:pointer;text-decoration:none;color:inherit;">
+              <span><strong>审核队列</strong></span>
+              <span class="bind-soon">管理待审活动 →</span>
+            </a>
+            <a href="/" onclick="sessionStorage.setItem('ark_openTab','users');return false;" class="bind-row" style="cursor:pointer;text-decoration:none;color:inherit;">
+              <span><strong>用户管理</strong></span>
+              <span class="bind-soon">角色与权限 →</span>
+            </a>
+          </div>
+        </section>` : ''}
+
+        <!-- 危险区 -->
+        <section class="acct-card" aria-label="账户安全">
+          <h2>账户安全</h2>
+          <div class="acct-actions">
+            <button class="ak-btn ak-btn--danger" id="btn-logout-page">退出登录</button>
+          </div>
+        </section>`;
+
+      // 绑定事件
+      document.getElementById('btn-edit-profile').onclick = () => openEditProfile();
+      document.getElementById('btn-change-pwd').onclick = () => openChangePwd();
+      document.getElementById('btn-bind-hg').onclick = () => openBindHypergryph();
+      document.getElementById('btn-logout-page').onclick = () => logoutAndRedirect();
+    }
+
+    /* ---- 编辑资料 ---- */
+    function openEditProfile() {
+      const u = state.user;
+      if (!u) return;
+      openModal(`
+        <div class="modal-title">编辑资料</div>
+        <div class="field"><label>展示名</label><input id="ep-display" value="${esc(u.display_name || '')}" placeholder="对外显示的名称" /></div>
+        <div class="field"><label>邮箱</label><input id="ep-email" type="email" value="${esc(u.email || '')}" placeholder="可选，用于登录" /></div>
+        <div class="modal-error" id="ep-error"></div>
+        <div class="modal-actions">
+          <button class="ak-btn ak-btn--primary" id="ep-save">保存</button>
+          <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+        </div>`);
+      document.getElementById('ep-save').onclick = saveProfile;
+    }
+
+    async function saveProfile() {
+      const err = document.getElementById('ep-error');
+      const payload = {};
+      const dn = document.getElementById('ep-display').value.trim();
+      if (dn) payload.display_name = dn;
+      const email = document.getElementById('ep-email').value.trim();
+      if (email) payload.email = email;
+      try {
+        const r = await api('/api/auth/me', { method: 'PUT', body: JSON.stringify(payload) });
+        const d = await r.json();
+        if (!r.ok) { err.textContent = d.error || '保存失败'; return; }
+        toast('资料已更新');
+        closeModal();
+        loadAccount(); // 刷新页面数据
+      } catch (e) { err.textContent = '网络错误'; }
+    }
+
+    /* ---- 修改密码 ---- */
+    function openChangePwd() {
+      openModal(`
+        <div class="modal-title">修改密码</div>
+        <div class="field"><label>当前密码</label><input id="cp-old" type="password" placeholder="输入当前密码" /></div>
+        <div class="field"><label>新密码</label><input id="cp-new" type="password" placeholder="至少 6 位" /></div>
+        <div class="field"><label>确认新密码</label><input id="cp-confirm" type="password" placeholder="再次输入新密码" /></div>
+        <div class="modal-error" id="cp-error"></div>
+        <div class="modal-actions">
+          <button class="ak-btn ak-btn--primary" id="cp-save">确认修改</button>
+          <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+        </div>`);
+      document.getElementById('cp-save').onclick = savePassword;
+    }
+
+    async function savePassword() {
+      const err = document.getElementById('cp-error');
+      const oldPwd = document.getElementById('cp-old').value;
+      const newPwd = document.getElementById('cp-new').value;
+      const confirm = document.getElementById('cp-confirm').value;
+      if (!oldPwd || !newPwd) { err.textContent = '请填写完整'; return; }
+      if (newPwd.length < 6) { err.textContent = '新密码至少 6 位'; return; }
+      if (newPwd !== confirm) { err.textContent = '两次输入不一致'; return; }
+      try {
+        const r = await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ old_password: oldPwd, new_password: newPwd }) });
+        const d = await r.json();
+        if (!r.ok) { err.textContent = d.error || '修改失败'; return; }
+        toast('密码已修改，请重新登录');
+        closeModal();
+        setTimeout(() => { location.href = '/'; }, 1500);
+      } catch (e) { err.textContent = '网络错误'; }
+    }
+
+    /* ---- 鹰角 UID 绑定 ---- */
+    function openBindHypergryph() {
+      const u = state.user;
+      openModal(`
+        <div class="modal-title">绑定鹰角通行证</div>
+        <div class="modal-sub">输入你在游戏内的 11 位 UID</div>
+        <div class="field"><label>鹰角 UID</label><input id="hg-uid" type="text" maxlength="11" placeholder="11 位数字" value="${esc(u && u.hypergryph_uid || '')}" pattern="[0-9]{11}" /></div>
+        <div class="modal-error" id="hg-error"></div>
+        <div class="modal-actions">
+          <button class="ak-btn ak-btn--primary" id="hg-save">提交绑定</button>
+          <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+        </div>`);
+      document.getElementById('hg-save').onclick = bindHypergryph;
+    }
+
+    async function bindHypergryph() {
+      const err = document.getElementById('hg-error');
+      const uid = document.getElementById('hg-uid').value.trim();
+      if (!/^\d{11}$/.test(uid)) { err.textContent = '请输入正确的 11 位数字 UID'; return; }
+      try {
+        const r = await api('/api/auth/link/hypergryph', { method: 'POST', body: JSON.stringify({ uid }) });
+        const d = await r.json();
+        if (!r.ok) { err.textContent = d.error || '绑定失败'; return; }
+        toast('UID 已提交，等待管理员验证');
+        closeModal();
+        loadAccount();
+      } catch (e) { err.textContent = '网络错误'; }
+    }
+
+    /* ---- 退出并跳转 ---- */
+    async function logoutAndRedirect() {
+      try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
+      state.user = null;
+      location.href = '/';
+    }
+
+    /* ---- 启动 ---- */
+    loadAccount();
+  </script>
+</body>
+</html>
