@@ -9,7 +9,6 @@ const state = {
   user: null,
   filters: { q: '', city: '', status: '' },
   selectedId: null,
-  pickMode: false,
   pickMarker: null,
 };
 
@@ -95,11 +94,6 @@ function initMap() {
   });
   map.addControl(new AMap.Scale());
   map.addControl(new AMap.ToolBar({ position: 'RB' }));
-  map.on('click', (e) => {
-    if (state.pickMode) {
-      setPicked(e.lnglat.getLng(), e.lnglat.getLat());
-    }
-  });
   state.map = map;
   renderMarkers();
 }
@@ -183,19 +177,22 @@ function renderList(list) {
   if (!list.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
   for (const ev of list) {
-    const li = document.createElement('li');
-    li.className = 'event-card' + (ev.id === state.selectedId ? ' is-active' : '');
-    li.innerHTML = `
+    const art = document.createElement('article');
+    art.className = 'event-card' + (ev.id === state.selectedId ? ' is-active' : '');
+    art.tabIndex = 0;
+    art.innerHTML = `
       <div class="ec-top">
-        <span class="ec-title">${esc(ev.title)}</span>
+        <h3 class="ec-title">${esc(ev.title)}</h3>
         <span class="badge badge--${ev.status}">${STATUS_TEXT[ev.status] || '待定'}</span>
       </div>
-      <div class="ec-meta">
+      <p class="ec-meta">
         📅 ${esc(fmtDate(ev))}<br/>
         📍 <span class="ec-city">${esc(ev.city || '城市待定')}</span>${ev.venue ? ' · ' + esc(ev.venue) : ''}
-      </div>`;
-    li.onclick = () => { openDetail(ev); flyTo(ev); };
-    ul.appendChild(li);
+      </p>`;
+    const go = () => { openDetail(ev); flyTo(ev); };
+    art.addEventListener('click', go);
+    art.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    ul.appendChild(art);
   }
 }
 async function renderCities() {
@@ -335,8 +332,8 @@ function openDetail(ev) {
     <button class="detail-close" onclick="closeDetail()">×</button>
     ${p}
     <div class="detail-body">
-      <div class="detail-title">${esc(ev.title)}</div>
-      <div class="detail-sub">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))}</div>
+      <h2 class="detail-title">${esc(ev.title)}</h2>
+      <p class="detail-sub">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))}</p>
       <div class="detail-rows">
         ${ev.city ? row('城市', ev.city + (ev.province ? ' / ' + ev.province : '')) : ''}
         ${ev.venue ? row('场馆', ev.venue) : ''}
@@ -472,7 +469,7 @@ window.deleteEvent = deleteEvent;
 
 function openForm(ev) {
   const isEdit = !!ev;
-  state.pickMode = false;
+  state._picked = null;
   if (state.pickMarker) { state.pickMarker.setMap(null); state.pickMarker = null; }
   const v = (k) => (ev && ev[k] != null ? ev[k] : '');
   const tagsVal = ev && Array.isArray(ev.tags) ? ev.tags.join('、') : '';
@@ -500,18 +497,14 @@ function openForm(ev) {
     <div class="field"><label>标签（用、分隔）</label><input id="f-tags" value="${esc(tagsVal)}" placeholder="如：官方、同人、仅限" /></div>
     <div class="field"><label>介绍</label><textarea id="f-desc" placeholder="活动简介、亮点、交通等">${esc(v('description'))}</textarea></div>
     <div class="field">
-      <label>地图定位</label>
-      <button class="ak-btn ak-btn--sm" id="f-pick" type="button">📍 在地图上选点</button>
-      <div class="coord-pick" id="f-coord">${isEdit && ev.longitude != null ? `已选：${ev.longitude}, ${ev.latitude}` : '未选点（也可仅填地址由系统解析）'}</div>
+      <label>地图定位（自动）</label>
+      <div class="coord-pick" id="f-coord">${isEdit && ev.longitude != null ? `已定位：${ev.longitude}, ${ev.latitude}` : '填写城市 / 详细地址后将自动解析落点'}</div>
     </div>
     <div class="modal-error" id="f-error"></div>
     <div class="modal-actions">
       <button class="ak-btn ak-btn--primary" id="f-submit">${isEdit ? '保存' : '提交'}</button>
       <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
     </div>`);
-
-  const pickBtn = document.getElementById('f-pick');
-  pickBtn.onclick = togglePick;
 
   document.getElementById('f-submit').onclick = () => submitForm(ev);
   wireAddressAutolocate();
@@ -549,25 +542,9 @@ function wireAddressAutolocate() {
   if (cityEl) cityEl.addEventListener('input', preview);
 }
 
-function togglePick() {
-  state.pickMode = !state.pickMode;
-  const hint = document.getElementById('map-hint');
-  const btn = document.getElementById('f-pick');
-  if (state.pickMode) {
-    hint.classList.remove('hidden');
-    btn.textContent = '✓ 选点中（点击地图）';
-    if (!state.map) toast('地图未加载，请先在服务端配置高德 Key');
-  } else {
-    hint.classList.add('hidden');
-    btn.textContent = '📍 在地图上选点';
-  }
-}
 function setPicked(lng, lat) {
-  state.pickMode = false;
-  document.getElementById('map-hint').classList.add('hidden');
-  const btn = document.getElementById('f-pick');
-  if (btn) btn.textContent = '📍 重新选点';
-  document.getElementById('f-coord').textContent = `已选：${lng.toFixed(5)}, ${lat.toFixed(5)}`;
+  const coordEl = document.getElementById('f-coord');
+  if (coordEl) coordEl.textContent = `已定位：${lng.toFixed(5)}, ${lat.toFixed(5)}`;
   if (state.pickMarker) state.pickMarker.setMap(null);
   if (state.map) {
     state.pickMarker = new AMap.Marker({
