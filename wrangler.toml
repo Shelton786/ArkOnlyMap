@@ -9,3 +9,9 @@ binding = "DB"
 database_name = "arknights-only-map"
 database_id = "27a131d1-03b9-48b4-b169-89e0bad18f70"  # 执行 wrangler d1 create arknights-only-map 后回填
 migrations_dir = "migrations"
+
+# 定时采集：每天 UTC 16:00（北京时间 00:00）自动跑一次 functions 里的 scheduled 处理器。
+# 自动采集 cpp / 千羽；B站会员购为半自动（朋友导出 → run.mjs）。
+# 如需改频率，调整下方 cron 表达式；多个触发器用逗号分隔。
+[triggers]
+crons = ["0 16 * * *"]

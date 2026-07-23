@@ -245,22 +245,66 @@ export async function createEvent(db, data) {
   n.organizer_user_id = data.organizer_user_id != null ? Number(data.organizer_user_id) : null;
   n.organizer_claim_status = data.organizer_claim_status || 'none';
   n.submitted_by = data.submitted_by != null ? Number(data.submitted_by) : null;
+  // 0004/0005 新增列：用户提交时多为 null，采集管道会填入编码与溯源
+  n.district = data.district || null;
+  n.country_code = data.country_code || null;
+  n.province_code = data.province_code || null;
+  n.city_code = data.city_code || null;
+  n.district_code = data.district_code || null;
+  n.source = data.source || 'user';
+  n.source_id = data.source_id || null;
+  n.imported_at = data.imported_at || null;
   const info = await db
     .prepare(
       `INSERT INTO conventions
-       (title, start_date, end_date, province, city, country, venue, address, longitude, latitude,
+       (title, start_date, end_date, province, city, district, country, venue, address, longitude, latitude,
         description, organizer, source_url, poster_url, verified, tags, submitted_by,
-        review_status, submission_type, parent_event_id, organizer_user_id, organizer_claim_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        review_status, submission_type, parent_event_id, organizer_user_id, organizer_claim_status,
+        country_code, province_code, city_code, district_code, source, source_id, imported_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      n.title, n.start_date, n.end_date, n.province, n.city, n.country, n.venue, n.address,
+      n.title, n.start_date, n.end_date, n.province, n.city, n.district, n.country, n.venue, n.address,
       n.longitude, n.latitude, n.description, n.organizer, n.source_url, n.poster_url,
       n.verified, n.tags, n.submitted_by,
-      n.review_status, n.submission_type, n.parent_event_id, n.organizer_user_id, n.organizer_claim_status
+      n.review_status, n.submission_type, n.parent_event_id, n.organizer_user_id, n.organizer_claim_status,
+      n.country_code, n.province_code, n.city_code, n.district_code, n.source, n.source_id, n.imported_at
     )
     .run();
   return getEvent(db, Number(info.meta.last_row_id));
+}
+
+// 批量幂等写入（采集管道用）。同一 (source, source_id) 重复时更新，不重复插。
+// 用 db.batch 一次性提交，减少往返。列集合与 run.mjs 的 COLS 保持一致。
+const UPSERT_COLS = [
+  'title', 'start_date', 'end_date', 'province', 'city', 'district', 'venue', 'address',
+  'longitude', 'latitude', 'description', 'organizer', 'source_url', 'poster_url', 'verified', 'tags',
+  'country', 'country_code', 'province_code', 'city_code', 'district_code',
+  'source', 'source_id', 'imported_at', 'review_status', 'submitted_by',
+];
+
+export async function upsertEvents(db, records) {
+  const safe = (records || []).filter(Boolean);
+  if (!safe.length) return 0;
+  const stmts = safe.map((r) => {
+    const cols = UPSERT_COLS;
+    const placeholders = cols.map(() => '?').join(', ');
+    const update = cols
+      .filter((c) => !['source', 'source_id', 'submitted_by'].includes(c))
+      .map((c) => `${c}=excluded.${c}`)
+      .join(', ');
+    const vals = cols.map((c) => {
+      const v = r[c];
+      if (c === 'verified') return v ? 1 : 0;
+      if (v === undefined) return null;
+      return v;
+    });
+    return db
+      .prepare(`INSERT INTO conventions (${cols.join(', ')}) VALUES (${placeholders}) ON CONFLICT(source, source_id) DO UPDATE SET ${update}`)
+      .bind(...vals);
+  });
+  await db.batch(stmts);
+  return safe.length;
 }
 
 // ---------------- 审核 / 认领 ----------------
@@ -292,7 +336,8 @@ export async function mergeSupplement(db, supplementId) {
   const parent = await getEvent(db, sup.parent_event_id);
   if (!parent) return null;
 
-  const SCALAR = ['title', 'start_date', 'end_date', 'province', 'city', 'country', 'venue', 'address', 'longitude', 'latitude', 'organizer', 'source_url', 'poster_url', 'tags'];
+  const SCALAR = ['title', 'start_date', 'end_date', 'province', 'city', 'district', 'country', 'venue', 'address', 'longitude', 'latitude', 'organizer', 'source_url', 'poster_url', 'tags',
+    'country_code', 'province_code', 'city_code', 'district_code', 'source', 'source_id', 'imported_at'];
   const merged = { ...parent };
   for (const k of SCALAR) {
     if (sup[k] != null && sup[k] !== '') merged[k] = sup[k];
@@ -331,17 +376,21 @@ export async function updateEvent(db, id, data) {
     .prepare(
       `UPDATE conventions SET
         title=?, start_date=?, end_date=?, province=?,
-        city=?, country=?, venue=?, address=?, longitude=?, latitude=?,
+        city=?, district=?, country=?, venue=?, address=?, longitude=?, latitude=?,
         description=?, organizer=?, source_url=?,
         poster_url=?, verified=?, tags=?,
+        country_code=?, province_code=?, city_code=?, district_code=?,
+        source=?, source_id=?, imported_at=?,
         submitted_by=?, updated_at=datetime('now')
       WHERE id=?`
     )
     .bind(
       merged.title, merged.start_date, merged.end_date, merged.province,
-      merged.city, merged.country, merged.venue, merged.address, merged.longitude, merged.latitude,
+      merged.city, merged.district, merged.country, merged.venue, merged.address, merged.longitude, merged.latitude,
       merged.description, merged.organizer, merged.source_url,
       merged.poster_url, merged.verified, merged.tags,
+      merged.country_code, merged.province_code, merged.city_code, merged.district_code,
+      merged.source, merged.source_id, merged.imported_at,
       merged.submitted_by, id
     )
     .run();
