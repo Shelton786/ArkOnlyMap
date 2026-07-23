@@ -288,7 +288,9 @@ body {
 .detail-rows .k { color: var(--text-mute); width: 64px; flex-shrink: 0; }
 .detail-rows .v { color: var(--text); flex: 1; word-break: break-word; }
 .detail-desc { margin-top: 14px; font-size: 13px; line-height: 1.8; color: var(--text-dim); white-space: pre-wrap; }
-.detail-actions { margin-top: 16px; display: flex; gap: 10px; }
+.detail-actions { margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.detail-actions .ak-btn,
+.detail-actions .detail-link { flex: 1 1 auto; min-width: 120px; text-align: center; justify-content: center; }
 .detail-link { color: var(--ak-primary); text-decoration: none; font-size: 13px; }
 .detail-link:hover { text-decoration: underline; }
 

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>管理后台 · 舟友同好集会地图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    /* 覆盖 style.css 中 html,body 的 fixed+overflow:hidden（那条规则为地图主页防缩放偏移服务，
+       管理页无地图，需要整体可滚动，否则内容会被裁剪看不见）。 */
+    html, body {
+      position: static !important;
+      height: auto !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .admin-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(74,171,234,0.10), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba(74,171,234,0.08), transparent 60%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1) 60%, var(--bg-2));
+    }
+    .admin-topbar {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(13,21,48,0.85));
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(6px);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .admin-brand { display: flex; align-items: baseline; gap: 10px; }
+    .admin-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #fff;
+    }
+    .admin-body {
+      flex: 1;
+      padding: 28px 20px 60px;
+      max-width: 720px;
+      width: 100%;
+      margin: 0 auto;
+      box-sizing: border-box;
+    }
+    .admin-card {
+      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(7,11,22,0.95));
+      border: 1px solid var(--line);
+      clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+      padding: 22px 24px 26px;
+      margin-bottom: 24px;
+    }
+    .admin-card h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .admin-empty { color: var(--text-dim); font-size: 14px; padding: 8px 0; }
+    .review-item {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      background: rgba(7,11,22,0.5);
+    }
+    .ri-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+    .ri-head b { color: #fff; font-size: 15px; }
+    .ri-meta { font-size: 12px; color: var(--text-mute); margin-bottom: 8px; }
+    .ri-desc { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 10px;
+      max-height: 120px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+    .ri-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .ua-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 0; border-bottom: 1px dashed var(--line-soft); font-size: 14px;
+    }
+    .ua-name { color: var(--text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ua-name small { color: var(--text-mute); font-family: 'Roboto', monospace; }
+    .ua-role { min-width: 110px; }
+    .badge--pending { color: #ffcf6b; border-color: #ffcf6b; }
+    .badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
+    .role-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
+    .role-site { color: #ff7ad9; }
+    .role-admin { color: #74b9ff; }
+    .role-org { color: #55efc4; }
+    .role-user { color: var(--text-mute); }
+    .login-prompt, .deny-prompt { text-align: center; padding: 80px 20px; color: var(--text-dim); }
+    .login-prompt .icon, .deny-prompt .icon { font-size: 48px; margin-bottom: 16px; opacity: .4; }
+    .login-prompt p, .deny-prompt p { font-size: 15px; margin-bottom: 24px; }
+    .admin-foot { text-align: center; color: var(--text-mute); font-size: 12px; padding: 20px 0 0; }
+    @media (max-width: 480px) {
+      .admin-topbar { padding: 0 12px; }
+      .admin-body { padding: 20px 14px 50px; }
+      .admin-card { padding: 18px 16px 22px; }
+      .admin-title { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-page">
+    <header class="admin-topbar">
+      <div class="admin-brand">
+        <a href="/" style="color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px;">
+          <span class="logo" style="color:var(--ak-primary);font-size:18px;">◆</span>
+          <span class="admin-title">返回地图</span>
+        </a>
+      </div>
+      <div id="auth-area" class="auth-area"></div>
+    </header>
+
+    <div class="admin-body" id="admin-body">
+      <!-- 由 JS 渲染 -->
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script>
+  /* ---- 管理后台页面逻辑（自包含，不依赖 app.js 的地图逻辑） ---- */
+  const ROLE_LABEL = { site_admin: '站长', admin: '管理员', organizer: '主办', user: '舟友' };
+  const ROLE_CLASS = { site_admin: 'role-site', admin: 'role-admin', organizer: 'role-org', user: 'role-user' };
+  function roleLabel(r) { return ROLE_LABEL[r] || '舟友'; }
+  function roleClass(r) { return ROLE_CLASS[r] || 'role-user'; }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function api(path, opts = {}) {
+    return fetch(path, Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, opts));
+  }
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.add('hidden'), 2400);
+  }
+
+  let me = null;
+
+  async function boot() {
+    try {
+      const r = await api('/api/auth/me');
+      const d = await r.json();
+      me = d.user || null;
+    } catch { me = null; }
+    renderAuth();
+    renderAdmin();
+  }
+
+  function renderAuth() {
+    const area = document.getElementById('auth-area');
+    if (me) {
+      area.innerHTML = `
+        <a href="/account.html" class="user-chip" style="cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px;color:var(--text);" title="账户中心">
+          <span class="avatar" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--ak-primary),var(--ak-primary-dark));display:flex;align-items:center;justify-content:center;color:#04111f;font-weight:700;">${esc((me.display_name || me.username || '?').slice(0, 1))}</span>
+          <span class="role-badge ${roleClass(me.role)}">${roleLabel(me.role)}</span>
+        </a>
+        <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;
+      document.getElementById('btn-logout').onclick = logout;
+    } else {
+      area.innerHTML = `<a href="/" class="ak-btn ak-btn--primary ak-btn--sm" style="text-decoration:none;">去登录</a>`;
+    }
+  }
+
+  async function logout() {
+    try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
+    me = null;
+    renderAuth();
+    renderAdmin();
+  }
+
+  function isAdmin() { return me && (me.role === 'admin' || me.role === 'site_admin'); }
+
+  async function renderAdmin() {
+    const body = document.getElementById('admin-body');
+    if (!me) {
+      body.innerHTML = `
+        <div class="login-prompt">
+          <div class="icon">🔒</div>
+          <p>请先登录以进入管理后台</p>
+          <a href="/" class="ak-btn ak-btn--primary" style="text-decoration:none;">去登录</a>
+        </div>`;
+      return;
+    }
+    if (!isAdmin()) {
+      body.innerHTML = `
+        <div class="deny-prompt">
+          <div class="icon">🚫</div>
+          <p>当前身份（${roleLabel(me.role)}）无管理权限</p>
+          <a href="/" class="ak-btn ak-btn--ghost" style="text-decoration:none;">返回地图</a>
+        </div>`;
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="admin-foot" style="padding:0 0 18px;text-align:left;">当前登录：${esc(me.display_name || me.username)} · <span class="role-badge ${roleClass(me.role)}">${roleLabel(me.role)}</span></div>
+      <section class="admin-card" aria-label="审核队列">
+        <h2>审核队列</h2>
+        <div id="review-list"><p class="admin-empty">加载中…</p></div>
+      </section>
+      ${me.role === 'site_admin' ? `
+      <section class="admin-card" aria-label="用户管理">
+        <h2>用户管理</h2>
+        <div id="user-list"><p class="admin-empty">加载中…</p></div>
+      </section>` : ''}
+      <div class="admin-foot">舟友同好集会地图 · 管理后台</div>`;
+
+    loadReview();
+    if (me.role === 'site_admin') loadUsers();
+  }
+
+  async function loadReview() {
+    const box = document.getElementById('review-list');
+    try {
+      const r = await api('/api/admin/review');
+      if (!r.ok) { box.innerHTML = `<p class="admin-empty">无权限或加载失败</p>`; return; }
+      const list = await r.json();
+      if (!list.length) { box.innerHTML = `<p class="admin-empty">暂无待审核活动</p>`; return; }
+      box.innerHTML = '';
+      for (const ev of list) {
+        const item = document.createElement('div');
+        item.className = 'review-item';
+        const typeTxt = ev.submission_type === 'supplement' ? '补充信息' : '新建活动';
+        item.innerHTML = `
+          <div class="ri-head"><b>${esc(ev.title)}</b><span class="badge badge--pending">${esc(typeTxt)}</span></div>
+          <div class="ri-meta">${esc(ev.city || '未知城市')} · 提交者 ${esc(ev.submitted_by_name || '匿名')}${ev.submission_type === 'supplement' && ev.parent_event_id ? ' · 补充至 #' + esc(ev.parent_event_id) : ''}</div>
+          ${ev.description ? '<div class="ri-desc">' + esc(ev.description) + '</div>' : ''}
+          <div class="ri-actions">
+            <button class="ak-btn ak-btn--sm ak-btn--primary" data-act="approve" data-id="${ev.id}">通过</button>
+            <button class="ak-btn ak-btn--sm ak-btn--danger" data-act="reject" data-id="${ev.id}">驳回</button>
+          </div>`;
+        box.appendChild(item);
+      }
+      box.querySelectorAll('button[data-act]').forEach((b) => {
+        b.onclick = () => reviewAction(b.dataset.id, b.dataset.act);
+      });
+    } catch {
+      box.innerHTML = `<p class="admin-empty">加载失败，请刷新</p>`;
+    }
+  }
+
+  async function reviewAction(id, action) {
+    const r = await api('/api/admin/review/' + id, { method: 'POST', body: JSON.stringify({ action }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || '操作失败'); return; }
+    toast(action === 'approve' ? '已通过' : '已驳回');
+    loadReview();
+  }
+
+  async function loadUsers() {
+    const box = document.getElementById('user-list');
+    try {
+      const r = await api('/api/admin/users');
+      if (!r.ok) { box.innerHTML = `<p class="admin-empty">无权限或加载失败</p>`; return; }
+      const users = await r.json();
+      box.innerHTML = users.map((u) => `
+        <div class="ua-row">
+          <span class="ua-name">${esc(u.display_name || u.username)} <small>${esc(u.amid || '')}</small></span>
+          <select class="ua-role ak-btn ak-btn--ghost ak-btn--sm" data-id="${u.id}">
+            ${['user', 'organizer', 'admin', 'site_admin'].map((rl) => `<option value="${rl}" ${u.role === rl ? 'selected' : ''}>${roleLabel(rl)}</option>`).join('')}
+          </select>
+        </div>`).join('');
+      box.querySelectorAll('.ua-role').forEach((sel) => {
+        sel.onchange = async () => {
+          const id = Number(sel.dataset.id);
+          const role = sel.value;
+          const rr = await api('/api/admin/users/' + id + '/role', { method: 'POST', body: JSON.stringify({ role }) });
+          const d = await rr.json();
+          if (!rr.ok) { toast(d.error || '设置失败'); sel.value = users.find((u) => u.id === id).role; return; }
+          toast('已设为' + roleLabel(role));
+          if (id === me.id) { me = Object.assign({}, me, { role }); renderAuth(); }
+        };
+      });
+    } catch {
+      box.innerHTML = `<p class="admin-empty">加载失败，请刷新</p>`;
+    }
+  }
+
+  boot();
+  </script>
+</body>
+</html>

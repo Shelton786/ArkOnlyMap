@@ -42,6 +42,40 @@ const REVIEW_BADGE = { pending: '未确认', rejected: '已驳回', merged: '已
 const DEFAULT_CENTER = [119.6, 31.6];
 const DEFAULT_ZOOM = 7;
 
+// 省 / 直辖市 / 自治区 → 主要城市（用于提交表单的省份、城市下拉选择，避免手打）
+const PROVINCE_CITIES = {
+  '北京市': ['北京'], '天津市': ['天津'], '上海市': ['上海'], '重庆市': ['重庆'],
+  '河北省': ['石家庄','唐山','秦皇岛','邯郸','邢台','保定','张家口','承德','沧州','廊坊','衡水'],
+  '山西省': ['太原','大同','朔州','忻州','阳泉','晋中','长治','晋城','临汾','运城','吕梁'],
+  '内蒙古自治区': ['呼和浩特','包头','乌海','赤峰','通辽','鄂尔多斯','呼伦贝尔','巴彦淖尔','乌兰察布','兴安盟','锡林郭勒盟','阿拉善盟'],
+  '辽宁省': ['沈阳','大连','鞍山','抚顺','本溪','丹东','锦州','营口','阜新','辽阳','盘锦','铁岭','朝阳','葫芦岛'],
+  '吉林省': ['长春','吉林','四平','辽源','通化','白山','松原','白城','延边'],
+  '黑龙江省': ['哈尔滨','齐齐哈尔','鸡西','鹤岗','双鸭山','大庆','伊春','佳木斯','七台河','牡丹江','黑河','绥化','大兴安岭'],
+  '江苏省': ['南京','无锡','徐州','常州','苏州','南通','连云港','淮安','盐城','扬州','镇江','泰州','宿迁'],
+  '浙江省': ['杭州','宁波','温州','嘉兴','湖州','绍兴','金华','衢州','舟山','台州','丽水'],
+  '安徽省': ['合肥','芜湖','蚌埠','淮南','马鞍山','淮北','铜陵','安庆','黄山','滁州','阜阳','宿州','六安','亳州','池州','宣城'],
+  '福建省': ['福州','厦门','莆田','三明','泉州','漳州','南平','龙岩','宁德'],
+  '江西省': ['南昌','景德镇','萍乡','九江','新余','鹰潭','赣州','吉安','宜春','抚州','上饶'],
+  '山东省': ['济南','青岛','淄博','枣庄','东营','烟台','潍坊','济宁','泰安','威海','日照','临沂','德州','聊城','滨州','菏泽'],
+  '河南省': ['郑州','开封','洛阳','平顶山','安阳','鹤壁','新乡','焦作','濮阳','许昌','漯河','三门峡','南阳','商丘','信阳','周口','驻马店','济源'],
+  '湖北省': ['武汉','黄石','十堰','宜昌','襄阳','鄂州','荆门','孝感','荆州','黄冈','咸宁','随州','恩施'],
+  '湖南省': ['长沙','株洲','湘潭','衡阳','邵阳','岳阳','常德','张家界','益阳','郴州','永州','怀化','娄底','湘西'],
+  '广东省': ['广州','韶关','深圳','珠海','汕头','佛山','江门','湛江','茂名','肇庆','惠州','梅州','汕尾','河源','阳江','清远','东莞','中山','潮州','揭阳','云浮'],
+  '广西壮族自治区': ['南宁','柳州','桂林','梧州','北海','防城港','钦州','贵港','玉林','百色','贺州','河池','来宾','崇左'],
+  '海南省': ['海口','三亚','三沙','儋州','五指山','琼海','文昌','万宁','东方','定安','屯昌','澄迈','临高','白沙','昌江','乐东','陵水','保亭','琼中'],
+  '四川省': ['成都','自贡','攀枝花','泸州','德阳','绵阳','广元','遂宁','内江','乐山','南充','眉山','宜宾','广安','达州','雅安','巴中','资阳','阿坝','甘孜','凉山'],
+  '贵州省': ['贵阳','六盘水','遵义','安顺','毕节','铜仁','黔西南','黔东南','黔南'],
+  '云南省': ['昆明','曲靖','玉溪','保山','昭通','丽江','普洱','临沧','楚雄','红河','文山','西双版纳','大理','德宏','怒江','迪庆'],
+  '西藏自治区': ['拉萨','日喀则','昌都','林芝','山南','那曲','阿里'],
+  '陕西省': ['西安','铜川','宝鸡','咸阳','渭南','延安','汉中','榆林','安康','商洛'],
+  '甘肃省': ['兰州','嘉峪关','金昌','白银','天水','武威','张掖','平凉','酒泉','庆阳','定西','陇南','临夏','甘南'],
+  '青海省': ['西宁','海东','海北','黄南','海南','果洛','玉树','海西'],
+  '宁夏回族自治区': ['银川','石嘴山','吴忠','固原','中卫'],
+  '新疆维吾尔自治区': ['乌鲁木齐','克拉玛依','吐鲁番','哈密','昌吉','博尔塔拉','巴音郭楞','阿克苏','克孜勒苏','喀什','和田','伊犁','塔城','阿勒泰','石河子'],
+  '台湾省': ['台北','高雄','台中','台南','新北','桃园','基隆','新竹','嘉义'],
+  '香港特别行政区': ['香港'], '澳门特别行政区': ['澳门'],
+};
+
 /* ---------------- 工具 ---------------- */
 function esc(s) {
   return String(s == null ? '' : s)
@@ -719,10 +753,18 @@ function openForm(ev, opts = {}) {
   const src = sup || ev; // 预填来源：补充模式取原活动
   const v = (k) => (src && src[k] != null ? src[k] : '');
   const tagsVal = src && Array.isArray(src.tags) ? src.tags.join('、') : '';
-  let dateVal = '';
+  let startVal = '', endVal = '';
   if (src) {
-    if (src.start_date && src.end_date && src.end_date !== src.start_date) dateVal = `${src.start_date} ~ ${src.end_date}`;
-    else dateVal = src.start_date || src.end_date || '';
+    startVal = src.start_date || '';
+    endVal = (src.end_date && src.end_date !== src.start_date) ? src.end_date : '';
+  }
+  const curProv = v('province');
+  const provinceOptions = Object.keys(PROVINCE_CITIES)
+    .map((p) => `<option value="${esc(p)}" ${curProv === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
+  let cityOptions = '';
+  if (curProv && PROVINCE_CITIES[curProv]) {
+    cityOptions = PROVINCE_CITIES[curProv]
+      .map((c) => `<option value="${esc(c)}" ${v('city') === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
   }
   const hasCoord = src && src.longitude != null;
   openModal(`
@@ -730,10 +772,13 @@ function openForm(ev, opts = {}) {
     <div class="modal-sub">${isSupplement ? '审核通过后，你填写的内容将合并进原活动' : isEdit ? '修改你提交的活动信息' : '填写活动信息，提交后将在地图上出现'}</div>
     ${isSupplement ? '<div class="supplement-banner">补充模式：仅填写需要更正 / 新增的字段，审核通过后合并到原活动。</div>' : ''}
     <div class="field"><label>活动名称 *</label><input id="f-title" value="${esc(v('title'))}" placeholder="如：罗德岛上海 ONLY" /></div>
-    <div class="field"><label>举办日期</label><input id="f-date" type="text" value="${esc(dateVal)}" placeholder="如 2026-07-26 或 2026-07-26 ~ 2026-07-27" /></div>
     <div class="field-row">
-      <div class="field"><label>省份</label><input id="f-province" value="${esc(v('province'))}" placeholder="如：上海" /></div>
-      <div class="field"><label>城市 *</label><input id="f-city" value="${esc(v('city'))}" placeholder="如：上海" /></div>
+      <div class="field"><label>开始日期</label><input id="f-start-date" type="date" value="${esc(startVal)}" /></div>
+      <div class="field"><label>结束日期</label><input id="f-end-date" type="date" value="${esc(endVal)}" /></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>省份</label><select id="f-province">${provinceOptions}</select></div>
+      <div class="field"><label>城市 *</label><select id="f-city">${cityOptions || '<option value="">（先选省份）</option>'}</select></div>
     </div>
     <div class="field"><label>场馆</label><input id="f-venue" value="${esc(v('venue'))}" placeholder="如：某会展中心" /></div>
     <div class="field"><label>详细地址</label><input id="f-address" value="${esc(v('address'))}" placeholder="用于地图定位；留空也可稍后补" /></div>
@@ -757,6 +802,7 @@ function openForm(ev, opts = {}) {
 
   document.getElementById('f-submit').onclick = () => submitForm(ev, opts);
   wireAddressAutolocate();
+  wireCitySelect();
 }
 
 function wireAddressAutolocate() {
@@ -791,6 +837,22 @@ function wireAddressAutolocate() {
   if (cityEl) cityEl.addEventListener('input', preview);
 }
 
+function wireCitySelect() {
+  const p = document.getElementById('f-province');
+  const c = document.getElementById('f-city');
+  if (!p || !c) return;
+  const fill = () => {
+    const prev = c.value;
+    const cities = PROVINCE_CITIES[p.value] || [];
+    c.innerHTML = cities.length
+      ? cities.map((ci) => `<option value="${esc(ci)}">${esc(ci)}</option>`).join('')
+      : '<option value="">（该省暂无列表）</option>';
+    if ([...c.options].some((o) => o.value === prev)) c.value = prev;
+  };
+  p.addEventListener('change', fill);
+  if (p.value) fill();
+}
+
 function setPicked(lng, lat) {
   const coordEl = document.getElementById('f-coord');
   if (coordEl) coordEl.textContent = `已定位：${lng.toFixed(5)}, ${lat.toFixed(5)}`;
@@ -812,12 +874,13 @@ async function submitForm(ev, opts = {}) {
   const title = document.getElementById('f-title').value.trim();
   if (!title) { err.textContent = '请填写活动名称'; return; }
   const tags = document.getElementById('f-tags').value.split('、').map((s) => s.trim()).filter(Boolean);
-  const dr = parseDateRange(document.getElementById('f-date').value.trim());
+  const startDate = document.getElementById('f-start-date').value.trim();
+  const endDate = document.getElementById('f-end-date').value.trim();
   const payload = {
     title,
-    start_date: dr.start,
-    end_date: dr.end !== dr.start ? dr.end : null,
-    province: document.getElementById('f-province').value.trim() || null,
+    start_date: startDate || null,
+    end_date: (endDate && endDate !== startDate) ? endDate : null,
+    province: document.getElementById('f-province').value || null,
     city: document.getElementById('f-city').value.trim() || null,
     venue: document.getElementById('f-venue').value.trim() || null,
     address: document.getElementById('f-address').value.trim() || null,
@@ -883,19 +946,12 @@ function bindUI() {
   bindUI();
   await loadConfig();
   await loadMe();
-  // 从账户页跳回时自动打开指定面板
-  const openTab = sessionStorage.getItem('ark_openTab');
-  if (openTab) { sessionStorage.removeItem('ark_openTab'); }
   await loadEvents();
   const ok = await loadAmap();
   if (ok) {
-    // 等待 AMap 就绪
     const wait = setInterval(() => {
       if (window.AMap && document.getElementById('map')) {
         clearInterval(wait); initMap();
-        // 延迟打开面板（等地图和用户态就绪）
-        if (openTab === 'review' && state.user) { setTimeout(() => openReviewQueue(), 300); }
-        else if (openTab === 'users' && state.user) { setTimeout(() => openUserAdmin(), 300); }
       }
     }, 80);
   }

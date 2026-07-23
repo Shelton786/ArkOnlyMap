@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>关于 · 舟友同好集会地图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    /* 关于页无地图，覆盖全局 fixed+overflow:hidden 以便整页滚动 */
+    html, body { position: static !important; height: auto !important; overflow-y: auto !important; overflow-x: hidden !important; }
+    .about-page {
+      min-height: 100vh; display: flex; flex-direction: column;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(74,171,234,0.10), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba(74,171,234,0.08), transparent 60%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1) 60%, var(--bg-2));
+    }
+    .about-topbar {
+      height: 64px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 22px; background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(13,21,48,0.85));
+      border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 40;
+    }
+    .about-brand { display: flex; align-items: baseline; gap: 10px; }
+    .about-title { font-family: 'Noto Serif SC', serif; font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #fff; }
+    .about-body { flex: 1; padding: 32px 20px 60px; max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+    .about-hero { text-align: center; margin-bottom: 36px; }
+    .about-hero h1 { font-family: 'Noto Serif SC', serif; font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 0 0 10px; }
+    .about-hero p { color: var(--text-dim); font-size: 15px; line-height: 1.8; max-width: 560px; margin: 0 auto; }
+    .about-card {
+      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(7,11,22,0.95));
+      border: 1px solid var(--line);
+      clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+      padding: 24px 26px 28px; margin-bottom: 24px;
+    }
+    .about-card h2 {
+      font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 700; color: #fff;
+      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft);
+    }
+    .about-card ul, .about-card ol { margin: 0; padding-left: 20px; color: var(--text-dim); font-size: 14px; line-height: 2; }
+    .about-card li { margin-bottom: 4px; }
+    .about-card li b, .about-card p b { color: var(--text); }
+    .link-list { display: flex; flex-direction: column; gap: 12px; }
+    .link-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 16px; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(7,11,22,0.5);
+    }
+    .link-row .ll-name { color: #fff; font-weight: 500; font-size: 14px; }
+    .link-row .ll-desc { color: var(--text-mute); font-size: 12px; margin-top: 2px; }
+    .link-row a { text-decoration: none; }
+    .changelog { font-size: 13px; line-height: 1.8; color: var(--text-dim); }
+    .changelog .ver { color: var(--ak-primary); font-weight: 700; }
+    .about-foot { text-align: center; color: var(--text-mute); font-size: 12px; padding: 24px 0 0; line-height: 1.9; }
+    .about-foot a { color: var(--ak-primary); text-decoration: none; }
+    @media (max-width: 480px) {
+      .about-topbar { padding: 0 12px; }
+      .about-body { padding: 22px 14px 50px; }
+      .about-card { padding: 18px 16px 22px; }
+      .about-title { font-size: 16px; }
+      .about-hero h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="about-page">
+    <header class="about-topbar">
+      <div class="about-brand">
+        <a href="/" style="color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px;">
+          <span class="logo" style="color:var(--ak-primary);font-size:18px;">◆</span>
+          <span class="about-title">返回地图</span>
+        </a>
+      </div>
+      <a href="/account.html" class="ak-btn ak-btn--ghost ak-btn--sm" style="text-decoration:none;">账户中心</a>
+    </header>
+
+    <div class="about-body">
+      <section class="about-hero">
+        <h1>舟友同好集会地图</h1>
+        <p>舟游四海，聚于一图。把全国乃至海外的《明日方舟》同好线下集会汇聚成一张地图，帮你找到身边那一场。</p>
+      </section>
+
+      <section class="about-card" aria-label="网站功能">
+        <h2>网站功能</h2>
+        <ul>
+          <li><b>一张聚合地图</b>：按城市、按状态筛选，标记用颜色区分「即将举办 / 进行中 / 已结束」。</li>
+          <li><b>活动详情</b>：点开标记即可查看时间、地点、场馆、主办、标签与简介。</li>
+          <li><b>提交与认领</b>：注册账户后可提交新集会、补充信息，或认领你主办的活动。</li>
+          <li><b>身份与核实</b>：每个账号拥有专属 <b>AMID</b> 身份号，可绑定鹰角通行证 UID 供管理员核实。</li>
+          <li><b>审核机制</b>：新提交公开前需管理员确认，确保信息真实可靠。</li>
+        </ul>
+      </section>
+
+      <section class="about-card" aria-label="使用方式">
+        <h2>使用方式</h2>
+        <ol>
+          <li>打开地图首页，使用顶部<b>搜索框</b>或<b>城市下拉</b>、<b>状态标签</b>快速定位你关心的集会。</li>
+          <li>点击地图上的光点，右侧会弹出<b>详情面板</b>，查看时间地点等信息。</li>
+          <li>想办一场？点击右上角「<b>＋ 提交漫展</b>」，登录后填写信息（日期用日历选择、省份城市用下拉选择），提交后等待管理员审核。</li>
+          <li>登录后进入<b>账户中心</b>可编辑资料、修改密码、绑定鹰角通行证 UID。</li>
+          <li>管理员 / 站长可在账户中心进入<b>管理后台</b>，处理审核队列与用户角色。</li>
+        </ol>
+      </section>
+
+      <section class="about-card" aria-label="开源与仓库">
+        <h2>开源与仓库</h2>
+        <div class="link-list">
+          <div class="link-row">
+            <div>
+              <div class="ll-name">GitHub 仓库</div>
+              <div class="ll-desc">Shelton786/ArkOnlyMap · 欢迎 Star 与提交 Issue</div>
+            </div>
+            <a href="https://github.com/Shelton786/ArkOnlyMap" target="_blank" rel="noopener" class="ak-btn ak-btn--primary ak-btn--sm">前往</a>
+          </div>
+          <div class="link-row">
+            <div>
+              <div class="ll-name">线上演示</div>
+              <div class="ll-desc">arkonlymap.pages.dev</div>
+            </div>
+            <a href="https://arkonlymap.pages.dev/" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">打开</a>
+          </div>
+          <div class="link-row">
+            <div>
+              <div class="ll-name">开源协议</div>
+              <div class="ll-desc">GPL-3.0-or-later © 2026 Booker786</div>
+            </div>
+            <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">查看</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="about-card" aria-label="更新日志">
+        <h2>更新日志</h2>
+        <div class="changelog">
+          <p><span class="ver">v1.0</span> 地图聚合、城市/状态筛选、活动详情、账户与提交系统上线。</p>
+          <p><span class="ver">v1.1</span> 新增审核流程与角色权限（站长 / 管理员 / 主办 / 舟友）、AMID 身份、鹰角 UID 绑定。</p>
+          <p><span class="ver">v1.2</span> 移动端布局适配；提交表单日期改为日历选择、省份城市改为下拉选择；独立管理后台与关于页上线。</p>
+        </div>
+      </section>
+
+      <section class="about-card" aria-label="友情链接">
+        <h2>友情链接</h2>
+        <div class="link-list">
+          <div class="link-row">
+            <div>
+              <div class="ll-name">明日方舟 官方网站</div>
+              <div class="ll-desc">鹰角网络《明日方舟》项目主页</div>
+            </div>
+            <a href="https://www.arknights.com/" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">前往</a>
+          </div>
+          <div class="link-row">
+            <div>
+              <div class="ll-name">泰拉记事社</div>
+              <div class="ll-desc">玩家向资料与社区站</div>
+            </div>
+            <a href="https://mapcn.ark-nights.com/" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">前往</a>
+          </div>
+        </div>
+      </section>
+
+      <div class="about-foot">
+        舟友同好集会地图 · GPL-3.0 © 2026 Booker786<br />
+        数据由同好社区众包提交，仅供参考，请以官方信息为准。
+      </div>
+    </div>
+  </div>
+</body>
+</html>
