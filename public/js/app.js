@@ -769,7 +769,7 @@ function openForm(ev, opts = {}) {
     <div class="modal-sub">${isSupplement ? '审核通过后，你填写的内容将合并进原活动' : isEdit ? '修改你提交的活动信息' : '填写活动信息，提交后将在地图上出现'}</div>
     ${isSupplement ? '<div class="supplement-banner">补充模式：仅填写需要更正 / 新增的字段，审核通过后合并到原活动。</div>' : ''}
     <div class="field"><label>活动名称 *</label><input id="f-title" value="${esc(v('title'))}" placeholder="如：罗德岛上海 ONLY" /></div>
-    <div class="field"><label>举办日期</label><input id="f-start-date" type="date" value="${esc(startVal)}" /></div>
+    <div class="field"><label>举办日期</label><input id="f-start-date" type="date" value="${esc(startVal)}" /><label style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="f-multi-day" /> 持续多天</label><div id="f-end-date-wrap" style="display:none;margin-top:8px;"><label style="font-size:12px;color:var(--text-dim);">结束日期</label><input id="f-end-date" type="date" /></div></div>
     <div class="field-row">
       <div class="field"><label>省份</label><select id="f-province">${provinceOptions}</select></div>
       <div class="field"><label>城市 *</label><select id="f-city">${cityOptions || '<option value="">（先选省份）</option>'}</select></div>
@@ -795,6 +795,19 @@ function openForm(ev, opts = {}) {
   document.getElementById('f-submit').onclick = () => submitForm(ev, opts);
   wireAddressAutolocate();
   wireCitySelect();
+  // 持续多天开关：勾选显示结束日期
+  const mdCb = document.getElementById('f-multi-day');
+  const endWrap = document.getElementById('f-end-date-wrap');
+  if (mdCb && endWrap) {
+    mdCb.addEventListener('change', () => { endWrap.style.display = mdCb.checked ? '' : 'none'; });
+    // 编辑模式：如有 end_date 则自动勾选并回填
+    if (src && src.end_date && src.end_date !== src.start_date) {
+      mdCb.checked = true;
+      endWrap.style.display = '';
+      const ed = document.getElementById('f-end-date');
+      if (ed) ed.value = src.end_date;
+    }
+  }
 }
 
 function wireAddressAutolocate() {
@@ -867,10 +880,12 @@ async function submitForm(ev, opts = {}) {
   if (!title) { err.textContent = '请填写活动名称'; return; }
   const tags = document.getElementById('f-tags').value.split('、').map((s) => s.trim()).filter(Boolean);
   const startDate = document.getElementById('f-start-date').value.trim();
+  const isMultiDay = document.getElementById('f-multi-day')?.checked;
+  const endDate = isMultiDay ? (document.getElementById('f-end-date')?.value.trim() || '') : '';
   const payload = {
     title,
     start_date: startDate || null,
-    end_date: null,
+    end_date: (endDate && endDate !== startDate) ? endDate : null,
     province: document.getElementById('f-province').value || null,
     city: document.getElementById('f-city').value.trim() || null,
     venue: document.getElementById('f-venue').value.trim() || null,
