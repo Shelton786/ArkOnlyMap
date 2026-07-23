@@ -248,13 +248,13 @@ export async function createEvent(db, data) {
   const info = await db
     .prepare(
       `INSERT INTO conventions
-       (title, start_date, end_date, province, city, venue, address, longitude, latitude,
+       (title, start_date, end_date, province, city, country, venue, address, longitude, latitude,
         description, organizer, source_url, poster_url, verified, tags, submitted_by,
         review_status, submission_type, parent_event_id, organizer_user_id, organizer_claim_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      n.title, n.start_date, n.end_date, n.province, n.city, n.venue, n.address,
+      n.title, n.start_date, n.end_date, n.province, n.city, n.country, n.venue, n.address,
       n.longitude, n.latitude, n.description, n.organizer, n.source_url, n.poster_url,
       n.verified, n.tags, n.submitted_by,
       n.review_status, n.submission_type, n.parent_event_id, n.organizer_user_id, n.organizer_claim_status
@@ -292,7 +292,7 @@ export async function mergeSupplement(db, supplementId) {
   const parent = await getEvent(db, sup.parent_event_id);
   if (!parent) return null;
 
-  const SCALAR = ['title', 'start_date', 'end_date', 'province', 'city', 'venue', 'address', 'longitude', 'latitude', 'organizer', 'source_url', 'poster_url', 'tags'];
+  const SCALAR = ['title', 'start_date', 'end_date', 'province', 'city', 'country', 'venue', 'address', 'longitude', 'latitude', 'organizer', 'source_url', 'poster_url', 'tags'];
   const merged = { ...parent };
   for (const k of SCALAR) {
     if (sup[k] != null && sup[k] !== '') merged[k] = sup[k];
@@ -331,7 +331,7 @@ export async function updateEvent(db, id, data) {
     .prepare(
       `UPDATE conventions SET
         title=?, start_date=?, end_date=?, province=?,
-        city=?, venue=?, address=?, longitude=?, latitude=?,
+        city=?, country=?, venue=?, address=?, longitude=?, latitude=?,
         description=?, organizer=?, source_url=?,
         poster_url=?, verified=?, tags=?,
         submitted_by=?, updated_at=datetime('now')
@@ -339,7 +339,7 @@ export async function updateEvent(db, id, data) {
     )
     .bind(
       merged.title, merged.start_date, merged.end_date, merged.province,
-      merged.city, merged.venue, merged.address, merged.longitude, merged.latitude,
+      merged.city, merged.country, merged.venue, merged.address, merged.longitude, merged.latitude,
       merged.description, merged.organizer, merged.source_url,
       merged.poster_url, merged.verified, merged.tags,
       merged.submitted_by, id

@@ -76,6 +76,11 @@ const PROVINCE_CITIES = {
   '香港特别行政区': ['香港'], '澳门特别行政区': ['澳门'],
 };
 
+// 国家 / 地区（海外展会用）。中国走「省份/城市」下拉；其它走「省/州(选填)+城市」自由文本。
+const COUNTRY_LIST = ['中国', '日本', '韩国', '美国', '英国', '法国', '德国', '澳大利亚', '加拿大', '新加坡', '马来西亚', '泰国', '其他'];
+// 中国以外的常见地区中文名（用于「其他」时用户自己填，这里仅作提示占位）
+function isChina(c) { return !c || c === '中国'; }
+
 /* ---------------- 工具 ---------------- */
 function esc(s) {
   return String(s == null ? '' : s)
@@ -214,9 +219,10 @@ async function loadCities() {
 
 /* ---------------- 列表 ---------------- */
 function visibleEvents() {
-  const { q, city, status } = state.filters;
+  const { q, city, status, country } = state.filters;
   const ql = q.trim().toLowerCase();
   return state.events.filter((ev) => {
+    if (country && (ev.country || '中国') !== country) return false;
     if (city && ev.city !== city) return false;
     if (status && ev.status !== status) return false;
     if (ql) {
@@ -267,7 +273,7 @@ function renderList(list) {
       </div>
       <p class="ec-meta">
         📅 ${esc(fmtDate(ev))}<br/>
-        📍 <span class="ec-city">${esc(ev.city || '城市待定')}</span>${ev.venue ? ' · ' + esc(ev.venue) : ''}
+        📍 <span class="ec-city">${esc(ev.city || '城市待定')}</span>${isChina(ev.country) ? '' : (ev.country ? ' · ' + esc(ev.country) : '')}${ev.venue ? ' · ' + esc(ev.venue) : ''}
       </p>`;
     const go = () => { openDetail(ev); flyTo(ev); };
     art.addEventListener('click', go);
@@ -281,6 +287,20 @@ async function renderCities() {
   const cur = state.filters.city;
   sel.innerHTML = '<option value="">全部城市</option>' +
     cities.map((c) => `<option value="${esc(c.city)}">${esc(c.city)} (${c.n})</option>`).join('');
+  sel.value = cur;
+  renderCountries();
+}
+
+// 国家 / 地区筛选（海外展会可发现性）
+function renderCountries() {
+  const sel = document.getElementById('country-select');
+  if (!sel) return;
+  const set = new Set();
+  state.events.forEach((ev) => { if (ev.country && ev.country !== '中国') set.add(ev.country); });
+  const cur = state.filters.country || '';
+  sel.innerHTML = '<option value="">全部国家 / 地区</option>' +
+    (set.size ? '<option value="中国">中国</option>' : '') +
+    [...set].sort().map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   sel.value = cur;
 }
 
@@ -433,7 +453,7 @@ function openDetail(ev) {
       <h2 class="detail-title">${esc(ev.title)}</h2>
       <p class="detail-sub">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))} ${reviewTag}</p>
       <div class="detail-rows">
-        ${ev.city ? row('城市', ev.city + (ev.province ? ' / ' + ev.province : '')) : ''}
+        ${ev.city ? row('城市', ev.city + (isChina(ev.country) ? (ev.province ? ' / ' + ev.province : '') : (ev.country ? ' / ' + ev.country : ''))) : ''}
         ${ev.venue ? row('场馆', ev.venue) : ''}
         ${ev.address ? row('地址', ev.address) : ''}
         ${ev.organizer ? row('主办', ev.organizer) : ''}
@@ -764,15 +784,25 @@ function openForm(ev, opts = {}) {
       .map((c) => `<option value="${esc(c)}" ${v('city') === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
   }
   const hasCoord = src && src.longitude != null;
+  const curCountry = v('country') || '中国';
+  const countryVal = COUNTRY_LIST.includes(curCountry) ? curCountry : '其他';
+  const countryOptions = COUNTRY_LIST
+    .map((c) => `<option value="${esc(c)}" ${countryVal === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  const cnMode = isChina(curCountry);
   openModal(`
     <div class="modal-title">${isSupplement ? '补充集会信息' : isEdit ? '编辑漫展' : '提交新漫展'}</div>
     <div class="modal-sub">${isSupplement ? '审核通过后，你填写的内容将合并进原活动' : isEdit ? '修改你提交的活动信息' : '填写活动信息，提交后将在地图上出现'}</div>
     ${isSupplement ? '<div class="supplement-banner">补充模式：仅填写需要更正 / 新增的字段，审核通过后合并到原活动。</div>' : ''}
     <div class="field"><label>活动名称 *</label><input id="f-title" value="${esc(v('title'))}" placeholder="例如：平壤.明日方舟ONLY" /></div>
     <div class="field"><label>举办日期</label><input id="f-start-date" type="date" value="${esc(startVal)}" /><label style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="f-multi-day" /> 持续多天</label><div id="f-end-date-wrap" style="display:none;margin-top:8px;"><label style="font-size:12px;color:var(--text-dim);">结束日期</label><input id="f-end-date" type="date" /></div></div>
-    <div class="field-row">
+    <div class="field"><label>国家 / 地区 *</label><select id="f-country">${countryOptions}</select></div>
+    <div class="field-row" id="loc-cn">
       <div class="field"><label>省份</label><select id="f-province">${provinceOptions}</select></div>
       <div class="field"><label>城市 *</label><select id="f-city">${cityOptions || '<option value="">（先选省份）</option>'}</select></div>
+    </div>
+    <div class="field-row" id="loc-os" style="display:${cnMode ? 'none' : ''};">
+      <div class="field"><label>省 / 州（选填）</label><input id="f-province-os" value="${cnMode ? '' : esc(v('province') || '')}" placeholder="例如：加利福尼亚州" /></div>
+      <div class="field"><label>城市 *</label><input id="f-city-os" value="${cnMode ? '' : esc(v('city') || '')}" placeholder="例如：洛杉矶" /></div>
     </div>
     <div class="field"><label>场馆</label><input id="f-venue" value="${esc(v('venue'))}" placeholder="例如：朝鲜平壤大剧院" /></div>
     <div class="field"><label>详细地址</label><input id="f-address" value="${esc(v('address'))}" placeholder="用于地图定位，留空也可稍后补。例如：朝鲜国家馆" /></div>
@@ -795,6 +825,19 @@ function openForm(ev, opts = {}) {
   document.getElementById('f-submit').onclick = () => submitForm(ev, opts);
   wireAddressAutolocate();
   wireCitySelect();
+  // 国家 / 地区切换：中国→省份/城市下拉；海外→省/州(选填)+城市自由文本
+  const countrySel = document.getElementById('f-country');
+  const locCn = document.getElementById('loc-cn');
+  const locOs = document.getElementById('loc-os');
+  if (countrySel && locCn && locOs) {
+    const toggleLoc = () => {
+      const cn = isChina(countrySel.value);
+      locCn.style.display = cn ? '' : 'none';
+      locOs.style.display = cn ? 'none' : '';
+    };
+    countrySel.addEventListener('change', toggleLoc);
+    toggleLoc();
+  }
   // 持续多天开关：勾选显示结束日期
   const mdCb = document.getElementById('f-multi-day');
   const endWrap = document.getElementById('f-end-date-wrap');
@@ -882,12 +925,22 @@ async function submitForm(ev, opts = {}) {
   const startDate = document.getElementById('f-start-date').value.trim();
   const isMultiDay = document.getElementById('f-multi-day')?.checked;
   const endDate = isMultiDay ? (document.getElementById('f-end-date')?.value.trim() || '') : '';
+  const country = document.getElementById('f-country').value || '中国';
+  let province, city;
+  if (isChina(country)) {
+    province = document.getElementById('f-province').value || null;
+    city = document.getElementById('f-city').value.trim() || null;
+  } else {
+    province = document.getElementById('f-province-os').value.trim() || null;
+    city = document.getElementById('f-city-os').value.trim() || null;
+  }
   const payload = {
     title,
     start_date: startDate || null,
     end_date: (endDate && endDate !== startDate) ? endDate : null,
-    province: document.getElementById('f-province').value || null,
-    city: document.getElementById('f-city').value.trim() || null,
+    country,
+    province,
+    city,
     venue: document.getElementById('f-venue').value.trim() || null,
     address: document.getElementById('f-address').value.trim() || null,
     organizer: document.getElementById('f-organizer').value.trim() || null,
@@ -929,6 +982,10 @@ function bindUI() {
   });
   document.getElementById('city-select').addEventListener('change', (e) => {
     state.filters.city = e.target.value; applyFilters(); frameToCity();
+  });
+  const cs = document.getElementById('country-select');
+  if (cs) cs.addEventListener('change', (e) => {
+    state.filters.country = e.target.value; applyFilters(); frameToCity();
   });
   document.getElementById('close-list').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.remove('open');
