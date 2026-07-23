@@ -28,17 +28,10 @@
         linear-gradient(160deg, var(--bg-0), var(--bg-1) 60%, var(--bg-2));
     }
     .admin-topbar {
-      height: 64px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 22px;
-      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(13,21,48,0.85));
-      border-bottom: 1px solid var(--line);
-      backdrop-filter: blur(6px);
-      position: sticky;
-      top: 0;
-      z-index: 40;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      height: 64px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 22px; background: linear-gradient(180deg, rgba(18,32,66,0.97), rgba(13,21,48,0.92));
+      border-bottom: 1px solid var(--line); backdrop-filter: blur(8px);
     }
     .admin-brand { display: flex; align-items: baseline; gap: 10px; }
     .admin-title {
@@ -50,7 +43,7 @@
     }
     .admin-body {
       flex: 1;
-      padding: 28px 20px 60px;
+      padding: 80px 20px 60px;
       max-width: 720px;
       width: 100%;
       margin: 0 auto;
@@ -106,7 +99,7 @@
     .admin-foot { text-align: center; color: var(--text-mute); font-size: 12px; padding: 20px 0 0; }
     @media (max-width: 480px) {
       .admin-topbar { padding: 0 12px; }
-      .admin-body { padding: 20px 14px 50px; }
+      .admin-body { padding: 76px 14px 50px; }
       .admin-card { padding: 18px 16px 22px; }
       .admin-title { font-size: 16px; }
     }

@@ -14,19 +14,32 @@
     html, body { position: static !important; height: auto !important; overflow-y: auto !important; overflow-x: hidden !important; }
     .about-page {
       min-height: 100vh; display: flex; flex-direction: column;
-      background:
-        radial-gradient(1200px 600px at 80% -10%, rgba(74,171,234,0.10), transparent 60%),
-        radial-gradient(900px 500px at -10% 110%, rgba(74,171,234,0.08), transparent 60%),
-        linear-gradient(160deg, var(--bg-0), var(--bg-1) 60%, var(--bg-2));
     }
+    /* 背景图：固定不随页面滚动 */
+    .about-bg {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: -1; object-fit: cover; pointer-events: none;
+    }
+    /* 半透明遮罩层，保证文字可读 */
+    .about-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(74,171,234,0.12), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba(74,171,234,0.10), transparent 60%),
+        linear-gradient(160deg, rgba(7,11,22,0.75) 0%, rgba(7,11,22,0.88) 40%, rgba(13,21,48,0.92));
+    }
+    /* 顶栏：fixed 固定在视口顶部，不随滚动消失 */
     .about-topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
       height: 64px; display: flex; align-items: center; justify-content: space-between;
-      padding: 0 22px; background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(13,21,48,0.85));
-      border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 40;
+      padding: 0 22px; background: linear-gradient(180deg, rgba(18,32,66,0.97), rgba(13,21,48,0.92));
+      border-bottom: 1px solid var(--line); backdrop-filter: blur(8px);
     }
     .about-brand { display: flex; align-items: baseline; gap: 10px; }
     .about-title { font-family: 'Noto Serif SC', serif; font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #fff; }
-    .about-body { flex: 1; padding: 32px 20px 60px; max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+    .about-body {
+      flex: 1; padding: 80px 20px 60px; max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box;
+    }
     .about-hero { text-align: center; margin-bottom: 36px; }
     .about-hero h1 { font-family: 'Noto Serif SC', serif; font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 0 0 10px; }
     .about-hero p { color: var(--text-dim); font-size: 15px; line-height: 1.8; max-width: 560px; margin: 0 auto; }
@@ -46,18 +59,18 @@
     .link-list { display: flex; flex-direction: column; gap: 12px; }
     .link-row {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 12px 16px; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(7,11,22,0.5);
+      padding: 12px 16px; border: 1px solid var(--line-soft); border-radius: 8px; background: rgba(7,11,22,0.6);
     }
     .link-row .ll-name { color: #fff; font-weight: 500; font-size: 14px; }
     .link-row .ll-desc { color: var(--text-mute); font-size: 12px; margin-top: 2px; }
     .link-row a { text-decoration: none; }
-    .changelog { font-size: 13px; line-height: 1.8; color: var(--text-dim); }
+    .changelog { font-size: 13px; line-height: 1.9; color: var(--text-dim); }
     .changelog .ver { color: var(--ak-primary); font-weight: 700; }
     .about-foot { text-align: center; color: var(--text-mute); font-size: 12px; padding: 24px 0 0; line-height: 1.9; }
     .about-foot a { color: var(--ak-primary); text-decoration: none; }
     @media (max-width: 480px) {
       .about-topbar { padding: 0 12px; }
-      .about-body { padding: 22px 14px 50px; }
+      .about-body { padding: 76px 14px 50px; }
       .about-card { padding: 18px 16px 22px; }
       .about-title { font-size: 16px; }
       .about-hero h1 { font-size: 24px; }
@@ -65,6 +78,10 @@
   </style>
 </head>
 <body>
+  <!-- 背景图：固定不随内容滚动 -->
+  <img class="about-bg" src="/about-bg.jpg" alt="" aria-hidden="true" />
+  <div class="about-overlay"></div>
+
   <div class="about-page">
     <header class="about-topbar">
       <div class="about-brand">
@@ -134,9 +151,9 @@
       <section class="about-card" aria-label="更新日志">
         <h2>更新日志</h2>
         <div class="changelog">
-          <p><span class="ver">v1.0</span> 地图聚合、城市/状态筛选、活动详情、账户与提交系统上线。</p>
-          <p><span class="ver">v1.1</span> 新增审核流程与角色权限（站长 / 管理员 / 主办 / 舟友）、AMID 身份、鹰角 UID 绑定。</p>
-          <p><span class="ver">v1.2</span> 移动端布局适配；提交表单日期改为日历选择、省份城市改为下拉选择；独立管理后台与关于页上线。</p>
+          <p><span class="ver">2026.7.23</span> 移动端布局适配；提交表单日期改为单日历选择、省份城市改为下拉选择；独立管理后台与关于页上线；关于页使用定制背景图；优化按钮样式统一性与文字居中。</p>
+          <p><span class="ver">2026.7.18</span> 新增审核流程与角色权限（站长 / 管理员 / 主办 / 舟友）、AMID 身份、鹰角 UID 绑定；独立账户页上线。</p>
+          <p><span class="ver">2026.7.13</span> 地图聚合、城市/状态筛选、活动详情、账户与提交系统上线。</p>
         </div>
       </section>
 
@@ -152,17 +169,32 @@
           </div>
           <div class="link-row">
             <div>
-              <div class="ll-name">泰拉记事社</div>
-              <div class="ll-desc">玩家向资料与社区站</div>
+              <div class="ll-name">谷门工坊千羽 · 明日方舟展会列表</div>
+              <div class="ll-desc">千羽整理的明日方舟展会活动汇总</div>
             </div>
-            <a href="https://mapcn.ark-nights.com/" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">前往</a>
+            <a href="https://docs.qq.com/sheet/DTE93aFpaS3dIb1RE" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">前往</a>
+          </div>
+          <div class="link-row">
+            <div>
+              <div class="ll-name">平凡的老书儿 · B站主页</div>
+              <div class="ll-desc">Bilibili UP主</div>
+            </div>
+            <a href="https://space.bilibili.com/113589678" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">前往</a>
+          </div>
+          <div class="link-row">
+            <div>
+              <div class="ll-name">Freefan Co 非凡战术 · 淘宝店</div>
+              <div class="ll-desc">明日方舟周边淘宝店铺</div>
+            </div>
+            <a href="https://shop444982948.taobao.com/" target="_blank" rel="noopener" class="ak-btn ak-btn--ghost ak-btn--sm">前往</a>
           </div>
         </div>
       </section>
 
       <div class="about-foot">
         舟友同好集会地图 · GPL-3.0 © 2026 Booker786<br />
-        数据由同好社区众包提交，仅供参考，请以官方信息为准。
+        数据由同好社区众包提交，仅供参考，请以官方信息为准。<br />
+        背景插画 © 2025 罗布恩农场
       </div>
     </div>
   </div>

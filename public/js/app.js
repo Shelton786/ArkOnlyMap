@@ -507,6 +507,7 @@ function renderAuth() {
         <span>${esc(u.display_name || u.username)}</span>
         <span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>
       </a>
+      <a href="/about.html" class="ak-btn ak-btn--ghost ak-btn--sm" style="text-decoration:none;">关于</a>
       ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-review">审核</button>' : ''}
       ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;
@@ -753,11 +754,7 @@ function openForm(ev, opts = {}) {
   const src = sup || ev; // 预填来源：补充模式取原活动
   const v = (k) => (src && src[k] != null ? src[k] : '');
   const tagsVal = src && Array.isArray(src.tags) ? src.tags.join('、') : '';
-  let startVal = '', endVal = '';
-  if (src) {
-    startVal = src.start_date || '';
-    endVal = (src.end_date && src.end_date !== src.start_date) ? src.end_date : '';
-  }
+  const startVal = src ? (src.start_date || '') : '';
   const curProv = v('province');
   const provinceOptions = Object.keys(PROVINCE_CITIES)
     .map((p) => `<option value="${esc(p)}" ${curProv === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
@@ -772,20 +769,15 @@ function openForm(ev, opts = {}) {
     <div class="modal-sub">${isSupplement ? '审核通过后，你填写的内容将合并进原活动' : isEdit ? '修改你提交的活动信息' : '填写活动信息，提交后将在地图上出现'}</div>
     ${isSupplement ? '<div class="supplement-banner">补充模式：仅填写需要更正 / 新增的字段，审核通过后合并到原活动。</div>' : ''}
     <div class="field"><label>活动名称 *</label><input id="f-title" value="${esc(v('title'))}" placeholder="如：罗德岛上海 ONLY" /></div>
-    <div class="field-row">
-      <div class="field"><label>开始日期</label><input id="f-start-date" type="date" value="${esc(startVal)}" /></div>
-      <div class="field"><label>结束日期</label><input id="f-end-date" type="date" value="${esc(endVal)}" /></div>
-    </div>
+    <div class="field"><label>举办日期</label><input id="f-start-date" type="date" value="${esc(startVal)}" /></div>
     <div class="field-row">
       <div class="field"><label>省份</label><select id="f-province">${provinceOptions}</select></div>
       <div class="field"><label>城市 *</label><select id="f-city">${cityOptions || '<option value="">（先选省份）</option>'}</select></div>
     </div>
     <div class="field"><label>场馆</label><input id="f-venue" value="${esc(v('venue'))}" placeholder="如：某会展中心" /></div>
     <div class="field"><label>详细地址</label><input id="f-address" value="${esc(v('address'))}" placeholder="用于地图定位；留空也可稍后补" /></div>
-    <div class="field-row">
-      <div class="field"><label>主办</label><input id="f-organizer" value="${esc(v('organizer'))}" /></div>
-      <div class="field"><label>来源链接</label><input id="f-source" value="${esc(v('source_url'))}" placeholder="https://" /></div>
-    </div>
+    <div class="field"><label>主办</label><input id="f-organizer" value="${esc(v('organizer'))}" /></div>
+    <div class="field"><label>来源链接</label><input id="f-source" value="${esc(v('source_url'))}" placeholder="https://" /></div>
     <div class="field"><label>海报图片 URL</label><input id="f-poster" value="${esc(v('poster_url'))}" placeholder="https://..." /></div>
     <div class="field"><label>标签（用、分隔）</label><input id="f-tags" value="${esc(tagsVal)}" placeholder="如：官方、同人、仅限" /></div>
     <div class="field"><label>介绍</label><textarea id="f-desc" placeholder="活动简介、亮点、交通等">${esc(v('description'))}</textarea></div>
@@ -875,11 +867,10 @@ async function submitForm(ev, opts = {}) {
   if (!title) { err.textContent = '请填写活动名称'; return; }
   const tags = document.getElementById('f-tags').value.split('、').map((s) => s.trim()).filter(Boolean);
   const startDate = document.getElementById('f-start-date').value.trim();
-  const endDate = document.getElementById('f-end-date').value.trim();
   const payload = {
     title,
     start_date: startDate || null,
-    end_date: (endDate && endDate !== startDate) ? endDate : null,
+    end_date: null,
     province: document.getElementById('f-province').value || null,
     city: document.getElementById('f-city').value.trim() || null,
     venue: document.getElementById('f-venue').value.trim() || null,

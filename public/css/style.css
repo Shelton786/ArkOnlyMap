@@ -102,6 +102,10 @@ body {
   clip-path: var(--bevel);
   transition: all .18s;
   letter-spacing: 1px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .ak-btn:hover { background: rgba(74,171,234,0.22); border-color: var(--ak-primary); }
 .ak-btn--primary {
