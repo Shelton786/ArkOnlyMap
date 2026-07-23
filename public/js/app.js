@@ -768,18 +768,18 @@ function openForm(ev, opts = {}) {
     <div class="modal-title">${isSupplement ? '补充集会信息' : isEdit ? '编辑漫展' : '提交新漫展'}</div>
     <div class="modal-sub">${isSupplement ? '审核通过后，你填写的内容将合并进原活动' : isEdit ? '修改你提交的活动信息' : '填写活动信息，提交后将在地图上出现'}</div>
     ${isSupplement ? '<div class="supplement-banner">补充模式：仅填写需要更正 / 新增的字段，审核通过后合并到原活动。</div>' : ''}
-    <div class="field"><label>活动名称 *</label><input id="f-title" value="${esc(v('title'))}" placeholder="如：罗德岛上海 ONLY" /></div>
+    <div class="field"><label>活动名称 *</label><input id="f-title" value="${esc(v('title'))}" placeholder="例如：平壤.明日方舟ONLY" /></div>
     <div class="field"><label>举办日期</label><input id="f-start-date" type="date" value="${esc(startVal)}" /><label style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--text-dim);cursor:pointer;user-select:none;"><input type="checkbox" id="f-multi-day" /> 持续多天</label><div id="f-end-date-wrap" style="display:none;margin-top:8px;"><label style="font-size:12px;color:var(--text-dim);">结束日期</label><input id="f-end-date" type="date" /></div></div>
     <div class="field-row">
       <div class="field"><label>省份</label><select id="f-province">${provinceOptions}</select></div>
       <div class="field"><label>城市 *</label><select id="f-city">${cityOptions || '<option value="">（先选省份）</option>'}</select></div>
     </div>
-    <div class="field"><label>场馆</label><input id="f-venue" value="${esc(v('venue'))}" placeholder="如：某会展中心" /></div>
-    <div class="field"><label>详细地址</label><input id="f-address" value="${esc(v('address'))}" placeholder="用于地图定位；留空也可稍后补" /></div>
+    <div class="field"><label>场馆</label><input id="f-venue" value="${esc(v('venue'))}" placeholder="例如：朝鲜平壤大剧院" /></div>
+    <div class="field"><label>详细地址</label><input id="f-address" value="${esc(v('address'))}" placeholder="用于地图定位，留空也可稍后补。例如：朝鲜国家馆" /></div>
     <div class="field"><label>主办</label><input id="f-organizer" value="${esc(v('organizer'))}" /></div>
     <div class="field"><label>来源链接</label><input id="f-source" value="${esc(v('source_url'))}" placeholder="https://" /></div>
     <div class="field"><label>海报图片 URL</label><input id="f-poster" value="${esc(v('poster_url'))}" placeholder="https://..." /></div>
-    <div class="field"><label>标签（用、分隔）</label><input id="f-tags" value="${esc(tagsVal)}" placeholder="如：官方、同人、仅限" /></div>
+    <div class="field"><label>标签（用、分隔）</label><input id="f-tags" value="${esc(tagsVal)}" placeholder="例如：官方、同人、茶话会、即卖会、免费展会等" /></div>
     <div class="field"><label>介绍</label><textarea id="f-desc" placeholder="活动简介、亮点、交通等">${esc(v('description'))}</textarea></div>
     <div class="field">
       <label>地图定位（自动）</label>
