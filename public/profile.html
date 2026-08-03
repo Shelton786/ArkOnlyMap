@@ -130,6 +130,8 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
+  <script src="/js/skland-avatars.js"></script>
+  <script src="/js/avatar-picker.js"></script>
   <script>
     const ROLE_LABEL = { site_admin: '站长', admin: '管理员', organizer: '主办', user: '舟友' };
     const ROLE_CLASS = { site_admin: 'role-site', admin: 'role-admin', organizer: 'role-org', user: 'role-user' };
@@ -140,6 +142,10 @@
       return String(s == null ? '' : s)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    // 头像统一经后端代理，绕过森空岛防盗链
+    function avatarProxy(u) {
+      return u ? '/api/avatar?u=' + encodeURIComponent(u) : null;
     }
     function fmtDate(ev) {
       if (ev.start_date && ev.end_date && ev.start_date !== ev.end_date) return ev.start_date + ' ~ ' + ev.end_date;
@@ -179,7 +185,7 @@
       const joined = (u.joined_at || '').slice(0, 10) || '—';
       const roleBadge = `<span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>`;
       const avatar = u.avatar_url
-        ? `<div class="pf-avatar"><img src="${esc(u.avatar_url)}" alt=""></div>`
+        ? `<div class="pf-avatar"><img src="${esc(avatarProxy(u.avatar_url))}" alt=""></div>`
         : `<div class="pf-avatar">${esc(initial)}</div>`;
 
       const tags = [];
@@ -190,6 +196,7 @@
       const settingsHtml = isSelf ? `
         <div class="pf-actions">
           <button class="ak-btn ak-btn--primary ak-btn--sm" id="pf-edit">编辑资料</button>
+          <button class="ak-btn ak-btn--ghost ak-btn--sm" id="pf-avatar">更换头像</button>
           <a class="ak-btn ak-btn--ghost ak-btn--sm" href="/account.html" style="text-decoration:none;">账户中心（改密码 / 绑定）</a>
           <button class="ak-btn ak-btn--ghost ak-btn--sm" id="pf-logout">退出登录</button>
         </div>` : '';
@@ -224,6 +231,9 @@
 
       if (isSelf) {
         document.getElementById('pf-edit').onclick = openEdit;
+        document.getElementById('pf-avatar').onclick = () => {
+          openAvatarPicker({ current: u.avatar_url, onSaved: () => loadProfile() });
+        };
         document.getElementById('pf-logout').onclick = async () => {
           await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
           location.href = '/';

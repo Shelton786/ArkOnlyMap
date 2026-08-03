@@ -97,6 +97,7 @@
       font-weight: 700;
       font-size: 22px;
       flex-shrink: 0;
+      object-fit: cover;
     }
     .acct-name-row { display: flex; align-items: center; gap: 10px; }
     .acct-display-name { font-size: 20px; font-weight: 700; color: #fff; }
@@ -150,6 +151,8 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script src="/js/app.js"></script>
+  <script src="/js/skland-avatars.js"></script>
+  <script src="/js/avatar-picker.js"></script>
   <script>
     /* ---- 账户页面逻辑（依赖 app.js 的工具函数和 API） ---- */
 
@@ -157,6 +160,10 @@
       return String(s == null ? '' : s)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    // 头像统一经后端代理，绕过森空岛防盗链
+    function avatarProxy(u) {
+      return u ? '/api/avatar?u=' + encodeURIComponent(u) : null;
     }
 
     async function loadAccount() {
@@ -188,7 +195,9 @@
         <section class="acct-card" aria-label="基本信息">
           <h2>身份信息</h2>
           <div class="acct-avatar-row">
-            <div class="acct-avatar-lg">${esc((user.display_name || user.username || '?').slice(0,1))}</div>
+            ${user.avatar_url
+              ? `<img class="acct-avatar-lg" src="${avatarProxy(user.avatar_url)}" alt="">`
+              : `<div class="acct-avatar-lg">${esc((user.display_name || user.username || '?').slice(0,1))}</div>`}
             <div class="acct-name-row">
               <span class="acct-display-name">${esc(user.display_name || user.username || '未设置')}</span>
               ${roleBadge}
@@ -202,6 +211,7 @@
           </div>
           <div class="acct-actions">
             <button class="ak-btn ak-btn--ghost" id="btn-edit-profile">编辑资料</button>
+            <button class="ak-btn ak-btn--ghost" id="btn-avatar">更换头像</button>
             <button class="ak-btn ak-btn--ghost" id="btn-change-pwd">修改密码</button>
             <a class="ak-btn ak-btn--primary" href="/account/${esc(user.amid)}" style="text-decoration:none;">查看我的主页</a>
           </div>
@@ -252,6 +262,9 @@
 
       // 绑定事件
       document.getElementById('btn-edit-profile').onclick = () => openEditProfile();
+      document.getElementById('btn-avatar').onclick = () => {
+        openAvatarPicker({ current: (state.user && state.user.avatar_url) || null, onSaved: () => loadAccount() });
+      };
       document.getElementById('btn-change-pwd').onclick = () => openChangePwd();
       document.getElementById('btn-bind-hg').onclick = () => openBindHypergryph();
       document.getElementById('btn-logout-page').onclick = () => logoutAndRedirect();

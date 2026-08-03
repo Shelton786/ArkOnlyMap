@@ -342,6 +342,10 @@ body {
   display: flex; align-items: center; justify-content: center;
   color: #04111f; font-weight: 700; font-size: 13px;
 }
+.user-chip .avatar-img {
+  width: 30px; height: 30px; border-radius: 50%;
+  object-fit: cover; display: block; background: rgba(13,21,48,.6);
+}
 .user-chip .role-admin { font-size: 10px; color: var(--ak-advanced); border: 1px solid var(--ak-advanced); border-radius: 4px; padding: 0 4px; }
 
 /* ---------------- Toast ---------------- */

@@ -66,9 +66,22 @@ export function createApp() {
     email: u.email || null,
     display_name: u.display_name || u.username,
     role: u.role,
+    avatar_url: u.avatar_url || null,
     email_verified: !!u.email_verified,
     providers: (identities || []).map((i) => i.provider),
   });
+
+  // 校验头像 URL 必须来自森空岛 CDN（bbs.hycdn.cn 或 assets.skland.com 的 /avatar 资源）。
+  // 返回规范化后的 URL，非法则 null。用于「自定义头像仅限森空岛 CDN」限制 + /api/avatar 代理防 SSRF。
+  const parseSklandAvatar = (raw) => {
+    if (typeof raw !== 'string' || !raw) return null;
+    let url;
+    try { url = new URL(raw); } catch { return null; }
+    if (url.protocol !== 'https:') return null;
+    if (url.hostname !== 'bbs.hycdn.cn' && url.hostname !== 'assets.skland.com') return null;
+    if (!/\/avatar\//i.test(url.pathname)) return null;
+    return url.href;
+  };
 
   app.post('/api/auth/register', async (c) => {
     const body = await c.req.json().catch(() => ({}));
@@ -141,9 +154,43 @@ export function createApp() {
       }
       patch.email = email;
     }
+    if (body.avatar_url !== undefined) {
+      if (body.avatar_url === null || body.avatar_url === '') {
+        patch.avatarUrl = null; // 恢复默认（清空自定义头像）
+      } else {
+        const sk = parseSklandAvatar(body.avatar_url);
+        if (!sk) {
+          return c.json({ error: '头像仅支持森空岛 CDN 图片（bbs.hycdn.cn / assets.skland.com 的 /avatar 资源）' }, 400);
+        }
+        patch.avatarUrl = sk;
+      }
+    }
     const u = await db.updateUser(c.env.DB, c.get('user').id, patch);
     const identities = await db.getIdentities(c.env.DB, u.id);
     return c.json({ user: shapeUser(u, identities) });
+  });
+
+  // 森空岛头像代理：森空岛 CDN 有防盗链（带本站 Referer 返回 403），
+  // 故由服务端取图并流式返回；同时再次校验目标仅限森空岛 CDN，防止被当开放代理/SSRF。
+  app.get('/api/avatar', async (c) => {
+    const target = parseSklandAvatar(c.req.query('u'));
+    if (!target) return c.text('invalid avatar url', 400);
+    try {
+      const r = await fetch(target, {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.skland.com/' },
+      });
+      if (!r.ok) return c.text('upstream error', 502);
+      const buf = await r.arrayBuffer();
+      return new Response(buf, {
+        status: 200,
+        headers: {
+          'Content-Type': r.headers.get('content-type') || 'image/webp',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
+    } catch {
+      return c.text('fetch error', 502);
+    }
   });
 
   // 绑定鹰角通行证（手动 11 位 UID，阶段 A 即可用，无 OAuth）

@@ -155,12 +155,14 @@ export async function deleteIdentity(db, userId, provider) {
 }
 
 // 更新用户资料（display_name / email）
-export async function updateUser(db, id, { displayName, email }) {
+export async function updateUser(db, id, { displayName, email, avatarUrl }) {
   const sets = [];
   const vals = [];
   if (displayName !== undefined) { sets.push('display_name = ?'); vals.push(displayName); }
   if (email !== undefined) { sets.push('email = ?'); sets.push('email_verified = 0'); vals.push(email || null); }
+  if (avatarUrl !== undefined) { sets.push('avatar_url = ?'); vals.push(avatarUrl); }
   if (!sets.length) return getUserById(db, id);
+  sets.push("updated_at = datetime('now')");
   vals.push(id);
   await db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...vals).run();
   return getUserById(db, id);

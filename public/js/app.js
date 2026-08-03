@@ -523,7 +523,9 @@ function renderAuth() {
     const isAdmin = u.role === 'admin' || u.role === 'site_admin';
     area.innerHTML = `
       <a href="/account/${esc(u.amid)}" class="user-chip" style="cursor:pointer;text-decoration:none;" title="我的主页">
-        <span class="avatar">${esc((u.display_name || u.username).slice(0, 1))}</span>
+        ${u.avatar_url
+          ? `<img class="avatar-img" src="/api/avatar?u=${encodeURIComponent(u.avatar_url)}" alt="">`
+          : `<span class="avatar">${esc((u.display_name || u.username).slice(0, 1))}</span>`}
         <span>${esc(u.display_name || u.username)}</span>
         <span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>
       </a>
