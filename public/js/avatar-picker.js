@@ -36,7 +36,7 @@
     mask.style.cssText = 'position:fixed;inset:0;background:rgba(3,7,16,.72);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;';
 
     const galleryHtml = list.map((u) =>
-      `<div class="av-opt" data-u="${esc(u)}"><img loading="lazy" src="${esc(avatarProxy(u))}" alt=""></div>`
+      `<div class="av-opt" data-u="${esc(u)}"><img loading="lazy" src="${esc(avatarProxy(u))}" alt="" onerror="this.style.visibility='hidden'"></div>`
     ).join('');
 
     mask.innerHTML = `

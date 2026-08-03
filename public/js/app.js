@@ -524,7 +524,7 @@ function renderAuth() {
     area.innerHTML = `
       <a href="/account/${esc(u.amid)}" class="user-chip" style="cursor:pointer;text-decoration:none;" title="我的主页">
         ${u.avatar_url
-          ? `<img class="avatar-img" src="/api/avatar?u=${encodeURIComponent(u.avatar_url)}" alt="">`
+          ? `<img class="avatar-img" src="/api/avatar?u=${encodeURIComponent(u.avatar_url)}" alt="" onerror="this.style.display='none'">`
           : `<span class="avatar">${esc((u.display_name || u.username).slice(0, 1))}</span>`}
         <span>${esc(u.display_name || u.username)}</span>
         <span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>

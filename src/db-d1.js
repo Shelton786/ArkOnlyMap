@@ -91,7 +91,7 @@ export async function getUserByName(db, username) {
 
 export async function getUserById(db, id) {
   return db
-    .prepare('SELECT id, username, amid, email, display_name, role, email_verified, created_at FROM users WHERE id = ?')
+    .prepare('SELECT id, username, amid, email, display_name, role, email_verified, created_at, avatar_url FROM users WHERE id = ?')
     .bind(id)
     .first();
 }

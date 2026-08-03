@@ -196,7 +196,7 @@
           <h2>身份信息</h2>
           <div class="acct-avatar-row">
             ${user.avatar_url
-              ? `<img class="acct-avatar-lg" src="${avatarProxy(user.avatar_url)}" alt="">`
+              ? `<img class="acct-avatar-lg" src="${avatarProxy(user.avatar_url)}" alt="" onerror="this.style.visibility='hidden'">`
               : `<div class="acct-avatar-lg">${esc((user.display_name || user.username || '?').slice(0,1))}</div>`}
             <div class="acct-name-row">
               <span class="acct-display-name">${esc(user.display_name || user.username || '未设置')}</span>

@@ -192,12 +192,10 @@
       if (u.hypergryph_bound) tags.push('已绑定鹰角通行证');
       const tagHtml = tags.length ? `<div class="pf-tags">${tags.map((t) => `<span class="pf-tag">${esc(t)}</span>`).join('')}</div>` : '';
 
-      // 个性化设置（仅自己可见）
+      // 个性化设置（仅自己可见）；编辑资料 / 更换头像 已收归「用户中心」，此处仅保留入口
       const settingsHtml = isSelf ? `
         <div class="pf-actions">
-          <button class="ak-btn ak-btn--primary ak-btn--sm" id="pf-edit">编辑资料</button>
-          <button class="ak-btn ak-btn--ghost ak-btn--sm" id="pf-avatar">更换头像</button>
-          <a class="ak-btn ak-btn--ghost ak-btn--sm" href="/account.html" style="text-decoration:none;">账户中心（改密码 / 绑定）</a>
+          <a class="ak-btn ak-btn--ghost ak-btn--sm" href="/account.html" style="text-decoration:none;">账户中心</a>
           <button class="ak-btn ak-btn--ghost ak-btn--sm" id="pf-logout">退出登录</button>
         </div>` : '';
 
@@ -230,46 +228,11 @@
         ${moduleHtml(contribTitle, contribSub, d.contributed)}`;
 
       if (isSelf) {
-        document.getElementById('pf-edit').onclick = openEdit;
-        document.getElementById('pf-avatar').onclick = () => {
-          openAvatarPicker({ current: u.avatar_url, onSaved: () => loadProfile() });
-        };
         document.getElementById('pf-logout').onclick = async () => {
           await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
           location.href = '/';
         };
       }
-    }
-
-    function openEdit() {
-      const cur = (document.querySelector('.pf-display-name') || {}).textContent || '';
-      const mask = document.createElement('div');
-      mask.className = 'pf-modal-mask';
-      mask.innerHTML = `
-        <div class="pf-modal">
-          <h3>编辑资料</h3>
-          <label>展示名（地图上显示的名字）</label>
-          <input id="pf-dn" maxlength="30" value="${esc(cur)}" />
-          <div class="pf-modal-actions">
-            <button class="ak-btn ak-btn--ghost ak-btn--sm" id="pf-cancel">取消</button>
-            <button class="ak-btn ak-btn--primary ak-btn--sm" id="pf-save">保存</button>
-          </div>
-        </div>`;
-      document.body.appendChild(mask);
-      mask.querySelector('#pf-cancel').onclick = () => mask.remove();
-      mask.querySelector('#pf-save').onclick = async () => {
-        const dn = mask.querySelector('#pf-dn').value.trim();
-        if (!dn) { toast('展示名不能为空'); return; }
-        const r = await fetch('/api/auth/me', {
-          method: 'PUT', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ display_name: dn }),
-        });
-        if (!r.ok) { toast('保存失败'); return; }
-        mask.remove();
-        toast('已保存');
-        loadProfile(); // 重新加载刷新展示名
-      };
     }
 
     async function loadProfile() {

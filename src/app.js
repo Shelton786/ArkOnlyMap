@@ -181,10 +181,15 @@ export function createApp() {
       });
       if (!r.ok) return c.text('upstream error', 502);
       const buf = await r.arrayBuffer();
+      // 森空岛 CDN 对多数头像返回 application/octet-stream（实为 webp），
+      // 浏览器可能因 MIME 拒渲染，统一改为 image/webp 以保证显示。
+      const upstreamCt = (r.headers.get('content-type') || '').toLowerCase();
+      const ct = upstreamCt.startsWith('image/') ? upstreamCt : 'image/webp';
       return new Response(buf, {
         status: 200,
         headers: {
-          'Content-Type': r.headers.get('content-type') || 'image/webp',
+          'Content-Type': ct,
+          'Content-Length': String(buf.byteLength),
           'Cache-Control': 'public, max-age=86400',
         },
       });
