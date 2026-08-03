@@ -34,7 +34,7 @@ const STATUS_SQL = `CASE
 END`;
 
 const BASE_SELECT = `SELECT c.*, ${STATUS_SQL} AS status,
-  u.username AS submitted_by_name
+  u.username AS submitted_by_name, u.amid AS submitted_by_amid
   FROM conventions c
   LEFT JOIN users u ON u.id = c.submitted_by`;
 
@@ -99,6 +99,15 @@ export async function getUserById(db, id) {
 export async function getUserByEmail(db, email) {
   if (!email) return null;
   return db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+}
+
+// 按 AMID 查公开字段（个人主页用，不含密码/邮箱等敏感信息）
+export async function getUserByAmid(db, amid) {
+  if (!amid) return null;
+  return db
+    .prepare('SELECT id, username, amid, display_name, role, created_at FROM users WHERE amid = ?')
+    .bind(amid)
+    .first();
 }
 
 export async function countUsers(db) {
@@ -170,7 +179,7 @@ export async function listUsers(db) {
 }
 
 // ---------------- conventions ----------------
-export async function listEvents(db, { q, city, status, province, page = 1, limit = 200, withCoordsOnly = false, review = 'public' } = {}) {
+export async function listEvents(db, { q, city, status, province, page = 1, limit = 200, withCoordsOnly = false, review = 'public', userId = null } = {}) {
   const where = [];
   const bindVals = []; // 与 where 顺序一一对应的位置参数值
   if (q) {
@@ -185,6 +194,10 @@ export async function listEvents(db, { q, city, status, province, page = 1, limi
   if (province) {
     where.push('c.province = ?');
     bindVals.push(province);
+  }
+  if (userId) {
+    where.push('(c.submitted_by = ? OR c.organizer_user_id = ?)');
+    bindVals.push(userId, userId);
   }
   if (status) {
     where.push(`(${STATUS_SQL}) = ?`);

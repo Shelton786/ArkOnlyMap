@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>用户主页 · 舟友同好集会地图</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    html, body {
+      position: static !important;
+      height: auto !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    .pf-page { min-height: 100vh; display: flex; flex-direction: column; }
+    .pf-bg {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: -1; object-fit: cover; pointer-events: none;
+    }
+    .pf-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(74,171,234,0.08), transparent 60%),
+        linear-gradient(160deg, rgba(7,11,22,0.55) 0%, rgba(7,11,22,0.65) 40%, rgba(13,21,48,0.70));
+    }
+    .pf-topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      height: 64px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 22px;
+      background: linear-gradient(180deg, rgba(18,32,66,0.97), rgba(13,21,48,0.92));
+      border-bottom: 1px solid var(--line); backdrop-filter: blur(8px);
+    }
+    .pf-brand { display: flex; align-items: baseline; gap: 10px; }
+    .pf-title {
+      font-family: 'Noto Serif SC', serif; font-size: 20px; font-weight: 900;
+      letter-spacing: 2px; color: #fff;
+    }
+    .pf-body { flex: 1; padding: 80px 20px 60px; max-width: 680px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+    .pf-card {
+      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(7,11,22,0.95));
+      border: 1px solid var(--line);
+      clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+      padding: 24px 26px 28px; margin-bottom: 24px;
+    }
+    .pf-card h2 {
+      font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 700;
+      color: #fff; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft);
+    }
+    .pf-head { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+    .pf-avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--ak-primary), var(--ak-primary-dark));
+      display: flex; align-items: center; justify-content: center; color: #04111f;
+      font-weight: 700; font-size: 26px; flex-shrink: 0;
+    }
+    .pf-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .pf-display-name { font-size: 22px; font-weight: 700; color: #fff; }
+    .pf-meta { display: flex; gap: 18px; margin-top: 6px; color: var(--text-dim); font-size: 13px; flex-wrap: wrap; }
+    .pf-meta b { color: var(--text); font-weight: 600; }
+    .pf-events { display: flex; flex-direction: column; gap: 12px; }
+    .pf-event {
+      display: block; text-decoration: none; color: inherit;
+      background: rgba(13,21,48,0.6); border: 1px solid var(--line);
+      border-left: 3px solid var(--ak-primary);
+      padding: 14px 16px; transition: background .15s, transform .15s;
+    }
+    .pf-event:hover { background: rgba(22,38,78,0.8); transform: translateX(2px); }
+    .pf-event-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .pf-event-meta { font-size: 13px; color: var(--ak-primary); margin-bottom: 4px; }
+    .pf-event-sub { font-size: 13px; color: var(--text-dim); }
+    .pf-empty { text-align: center; padding: 30px 10px; color: var(--text-dim); font-size: 14px; }
+    .pf-loading { text-align: center; padding: 40px 10px; color: var(--text-dim); }
+    .pf-error { text-align: center; padding: 50px 20px; color: var(--text-dim); }
+    .pf-error .icon { font-size: 44px; margin-bottom: 14px; opacity: .4; }
+    @media (max-width: 480px) {
+      .pf-topbar { padding: 0 12px; }
+      .pf-body { padding: 76px 14px 50px; }
+      .pf-card { padding: 18px 18px 22px; }
+      .pf-title { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <img class="pf-bg" src="/account-bg.jpg" alt="" aria-hidden="true" />
+  <div class="pf-overlay"></div>
+
+  <div class="pf-page">
+    <header class="pf-topbar">
+      <div class="pf-brand">
+        <a href="/" style="color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px;">
+          <span class="logo" style="color:var(--ak-primary);font-size:18px;">◆</span>
+          <span class="pf-title">返回地图</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="pf-body" id="pf-body">
+      <div class="pf-loading">读取中…</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script>
+    /* ---- 角色映射（与 app.js 保持一致） ---- */
+    const ROLE_LABEL = { site_admin: '站长', admin: '管理员', organizer: '主办', user: '舟友' };
+    const ROLE_CLASS = { site_admin: 'role-site', admin: 'role-admin', organizer: 'role-org', user: 'role-user' };
+    const STATUS_TEXT = { upcoming: '即将举办', ongoing: '进行中', past: '已结束', unknown: '待定' };
+    function roleLabel(r) { return ROLE_LABEL[r] || '舟友'; }
+    function roleClass(r) { return ROLE_CLASS[r] || 'role-user'; }
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function fmtDate(ev) {
+      if (ev.start_date && ev.end_date && ev.start_date !== ev.end_date) return ev.start_date + ' ~ ' + ev.end_date;
+      return ev.start_date || ev.end_date || '日期待定';
+    }
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.remove('hidden');
+      clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), 2200);
+    }
+
+    // 从 /account/{amid} 读取 amid
+    const AMID = (location.pathname.split('/')[2] || '').replace(/\/+$/, '');
+
+    async function loadProfile() {
+      const body = document.getElementById('pf-body');
+      if (!/^AM-\d{8}$/.test(AMID)) {
+        body.innerHTML = `<div class="pf-error"><div class="icon">🔍</div><p>无效的用户主页地址</p><a class="ak-btn ak-btn--primary" href="/">返回地图</a></div>`;
+        return;
+      }
+      try {
+        const r = await fetch('/api/users/' + encodeURIComponent(AMID), { credentials: 'same-origin' });
+        if (r.status === 404) {
+          body.innerHTML = `<div class="pf-error"><div class="icon">👤</div><p>该用户不存在或已被注销</p><a class="ak-btn ak-btn--primary" href="/">返回地图</a></div>`;
+          return;
+        }
+        if (!r.ok) throw new Error('load failed');
+        const d = await r.json();
+        renderProfile(d);
+      } catch {
+        body.innerHTML = `<div class="pf-error"><div class="icon">⚠️</div><p>加载失败，请稍后重试</p><a class="ak-btn ak-btn--primary" href="/">返回地图</a></div>`;
+      }
+    }
+
+    function renderProfile(d) {
+      const u = d.user;
+      const initial = (u.display_name || u.amid || '?').slice(0, 1);
+      const joined = (u.joined_at || '').slice(0, 10) || '—';
+      const roleBadge = `<span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>`;
+      const events = (d.events || []);
+
+      const eventsHtml = events.length
+        ? `<div class="pf-events">${events.map((ev) => `
+            <a class="pf-event" href="/?event=${ev.id}">
+              <div class="pf-event-title">${esc(ev.title)}</div>
+              <div class="pf-event-meta">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))}</div>
+              <div class="pf-event-sub">${esc(ev.city || '')}${ev.venue ? ' · ' + esc(ev.venue) : ''}</div>
+            </a>`).join('')}</div>`
+        : `<div class="pf-empty">这位舟友还没有公开的集会记录。</div>`;
+
+      document.getElementById('pf-body').innerHTML = `
+        <section class="pf-card" aria-label="用户信息">
+          <div class="pf-head">
+            <div class="pf-avatar">${esc(initial)}</div>
+            <div>
+              <div class="pf-name-row">
+                <span class="pf-display-name">${esc(u.display_name || u.amid)}</span>
+                ${roleBadge}
+              </div>
+              <div class="pf-meta">
+                <span>AMID <b>${esc(u.amid)}</b></span>
+                <span>加入于 <b>${esc(joined)}</b></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pf-card" aria-label="举办的集会">
+          <h2>TA 的集会（${u.event_count}）</h2>
+          ${eventsHtml}
+        </section>`;
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>

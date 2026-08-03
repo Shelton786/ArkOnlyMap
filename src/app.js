@@ -187,6 +187,24 @@ export function createApp() {
     return c.json(await db.allCities(c.env.DB));
   });
 
+  // 公开用户主页资料（前端 /account/{amid} 调用）；不含密码/邮箱等敏感信息
+  app.get('/api/users/:amid', async (c) => {
+    const amid = c.req.param('amid');
+    const u = await db.getUserByAmid(c.env.DB, amid);
+    if (!u) return c.json({ error: '用户不存在' }, 404);
+    const ev = await db.listEvents(c.env.DB, { userId: u.id, limit: 200, review: 'public' });
+    return c.json({
+      user: {
+        amid: u.amid,
+        display_name: u.display_name || u.username,
+        role: u.role,
+        joined_at: u.created_at,
+        event_count: ev.total,
+      },
+      events: ev.items,
+    });
+  });
+
   app.get('/api/events', async (c) => {
     const q = c.req.query('q');
     const city = c.req.query('city');

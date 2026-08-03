@@ -458,7 +458,7 @@ function openDetail(ev) {
         ${ev.address ? row('地址', ev.address) : ''}
         ${ev.organizer ? row('主办', ev.organizer) : ''}
         ${tags.length ? row('标签', tags.join('、')) : ''}
-        ${ev.submitted_by_name ? row('提交者', ev.submitted_by_name) : ''}
+        ${ev.submitted_by_name ? `<div class="row"><span class="k">提交者</span><span class="v">${ev.submitted_by_amid ? `<a href="/account/${esc(ev.submitted_by_amid)}" style="color:var(--ak-primary);text-decoration:none;">${esc(ev.submitted_by_name)}</a>` : esc(ev.submitted_by_name)}</span></div>` : ''}
         ${isPending ? row('审核', ev.submission_type === 'supplement' ? '补充待合并' : '待管理员确认') : ''}
         ${ev.organizer_claim_status === 'pending' ? row('认领', '待管理员确认') : ''}
         ${ev.organizer_claim_status === 'approved' ? row('主办', '已认领') : ''}
@@ -528,6 +528,7 @@ function renderAuth() {
         <span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>
       </a>
       <a href="/about.html" class="ak-btn ak-btn--ghost ak-btn--sm" style="text-decoration:none;">关于</a>
+      <a href="/account/${esc(u.amid)}" class="ak-btn ak-btn--ghost ak-btn--sm" style="text-decoration:none;">主页</a>
       ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-review">审核</button>' : ''}
       ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;
@@ -1010,6 +1011,12 @@ function bindUI() {
   await loadConfig();
   await loadMe();
   await loadEvents();
+  // 个人主页里的活动卡片跳转回来时，自动打开对应活动详情
+  const deepEvent = new URLSearchParams(location.search).get('event');
+  if (deepEvent) {
+    const ev = state.events.find((e) => String(e.id) === String(deepEvent));
+    if (ev) openDetail(ev);
+  }
   const ok = await loadAmap();
   if (ok) {
     const wait = setInterval(() => {
