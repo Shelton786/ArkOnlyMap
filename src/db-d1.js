@@ -105,7 +105,7 @@ export async function getUserByEmail(db, email) {
 export async function getUserByAmid(db, amid) {
   if (!amid) return null;
   return db
-    .prepare('SELECT id, username, amid, display_name, role, created_at FROM users WHERE amid = ?')
+    .prepare('SELECT id, username, amid, display_name, role, avatar_url, created_at FROM users WHERE amid = ?')
     .bind(amid)
     .first();
 }
@@ -230,6 +230,40 @@ export async function listEvents(db, { q, city, status, province, page = 1, limi
     .all();
   const items = (rows.results || []).map(parseRow);
   return { total, page, limit, items };
+}
+
+// 「TA 的集会」：该用户认领主办且认领已通过的活动。
+// review='public' 时仅返回已确认(review_status='approved')；'all' 时返回全部（自己看自己用）。
+export async function getHostedEvents(db, userId, review = 'public') {
+  const where = ['c.organizer_user_id = ?', "c.organizer_claim_status = 'approved'"];
+  const binds = [userId];
+  if (review === 'public') where.push("c.review_status = 'approved'");
+  const rows = await db
+    .prepare(
+      `${BASE_SELECT} WHERE ${where.join(' AND ')} ORDER BY
+        CASE WHEN c.start_date IS NULL THEN 1 ELSE 0 END,
+        c.start_date DESC LIMIT 200`
+    )
+    .bind(...binds)
+    .all();
+  return (rows.results || []).map(parseRow);
+}
+
+// 「TA 分享的集会情报」：该用户提交(submitted_by)的所有活动（含补充情报）。
+// review='public' 时仅返回 approved+pending；'all' 时返回全部（自己看自己用）。
+export async function getContributedEvents(db, userId, review = 'public') {
+  const where = ['c.submitted_by = ?'];
+  const binds = [userId];
+  if (review === 'public') where.push("c.review_status IN ('approved', 'pending')");
+  const rows = await db
+    .prepare(
+      `${BASE_SELECT} WHERE ${where.join(' AND ')} ORDER BY
+        CASE WHEN c.start_date IS NULL THEN 1 ELSE 0 END,
+        c.start_date DESC LIMIT 200`
+    )
+    .bind(...binds)
+    .all();
+  return (rows.results || []).map(parseRow);
 }
 
 export async function getEvent(db, id) {

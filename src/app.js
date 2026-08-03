@@ -188,20 +188,29 @@ export function createApp() {
   });
 
   // 公开用户主页资料（前端 /account/{amid} 调用）；不含密码/邮箱等敏感信息
+  // 返回：user(公开字段 + is_self + 鹰角通行证绑定状态) + hosted(认领主办) + contributed(分享情报)
   app.get('/api/users/:amid', async (c) => {
     const amid = c.req.param('amid');
     const u = await db.getUserByAmid(c.env.DB, amid);
     if (!u) return c.json({ error: '用户不存在' }, 404);
-    const ev = await db.listEvents(c.env.DB, { userId: u.id, limit: 200, review: 'public' });
+    const me = c.get('user');
+    const isSelf = !!(me && me.id === u.id);
+    const identities = await db.getIdentities(c.env.DB, u.id);
+    const hypergryphBound = (identities || []).some((i) => i.provider === 'hypergryph');
+    const hosted = await db.getHostedEvents(c.env.DB, u.id, isSelf ? 'all' : 'public');
+    const contributed = await db.getContributedEvents(c.env.DB, u.id, isSelf ? 'all' : 'public');
     return c.json({
       user: {
         amid: u.amid,
         display_name: u.display_name || u.username,
         role: u.role,
+        avatar_url: u.avatar_url || null,
         joined_at: u.created_at,
-        event_count: ev.total,
+        is_self: isSelf,
+        hypergryph_bound: hypergryphBound,
       },
-      events: ev.items,
+      hosted,
+      contributed,
     });
   });
 

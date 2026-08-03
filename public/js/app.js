@@ -522,13 +522,12 @@ function renderAuth() {
     const u = state.user;
     const isAdmin = u.role === 'admin' || u.role === 'site_admin';
     area.innerHTML = `
-      <a href="/account.html" class="user-chip" style="cursor:pointer;text-decoration:none;" title="账户中心">
+      <a href="/account/${esc(u.amid)}" class="user-chip" style="cursor:pointer;text-decoration:none;" title="我的主页">
         <span class="avatar">${esc((u.display_name || u.username).slice(0, 1))}</span>
         <span>${esc(u.display_name || u.username)}</span>
         <span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>
       </a>
       <a href="/about.html" class="ak-btn ak-btn--ghost ak-btn--sm" style="text-decoration:none;">关于</a>
-      <a href="/account/${esc(u.amid)}" class="ak-btn ak-btn--ghost ak-btn--sm" style="text-decoration:none;">主页</a>
       ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-review">审核</button>' : ''}
       ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;

@@ -55,12 +55,20 @@
       width: 64px; height: 64px; border-radius: 50%;
       background: linear-gradient(135deg, var(--ak-primary), var(--ak-primary-dark));
       display: flex; align-items: center; justify-content: center; color: #04111f;
-      font-weight: 700; font-size: 26px; flex-shrink: 0;
+      font-weight: 700; font-size: 26px; flex-shrink: 0; overflow: hidden;
     }
+    .pf-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .pf-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .pf-display-name { font-size: 22px; font-weight: 700; color: #fff; }
     .pf-meta { display: flex; gap: 18px; margin-top: 6px; color: var(--text-dim); font-size: 13px; flex-wrap: wrap; }
     .pf-meta b { color: var(--text); font-weight: 600; }
+    .pf-tags { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .pf-tag {
+      font-size: 12px; padding: 3px 10px; border-radius: 999px;
+      background: rgba(74,171,234,0.12); color: var(--ak-primary);
+      border: 1px solid rgba(74,171,234,0.3);
+    }
+    .pf-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
     .pf-events { display: flex; flex-direction: column; gap: 12px; }
     .pf-event {
       display: block; text-decoration: none; color: inherit;
@@ -76,6 +84,23 @@
     .pf-loading { text-align: center; padding: 40px 10px; color: var(--text-dim); }
     .pf-error { text-align: center; padding: 50px 20px; color: var(--text-dim); }
     .pf-error .icon { font-size: 44px; margin-bottom: 14px; opacity: .4; }
+    .pf-sec-sub { font-size: 13px; color: var(--text-dim); margin-top: -10px; margin-bottom: 16px; }
+    /* 编辑资料弹窗 */
+    .pf-modal-mask {
+      position: fixed; inset: 0; background: rgba(3,7,16,0.72); z-index: 100;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .pf-modal {
+      width: 100%; max-width: 420px; background: linear-gradient(180deg, rgba(18,32,66,0.98), rgba(7,11,22,0.98));
+      border: 1px solid var(--line); padding: 24px; border-radius: 4px;
+    }
+    .pf-modal h3 { font-family: 'Noto Serif SC', serif; color: #fff; margin-bottom: 16px; font-size: 17px; }
+    .pf-modal label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+    .pf-modal input {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 4px;
+      border: 1px solid var(--line); background: rgba(7,11,22,0.8); color: #fff; font-size: 14px;
+    }
+    .pf-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
     @media (max-width: 480px) {
       .pf-topbar { padding: 0 12px; }
       .pf-body { padding: 76px 14px 50px; }
@@ -106,7 +131,6 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script>
-    /* ---- 角色映射（与 app.js 保持一致） ---- */
     const ROLE_LABEL = { site_admin: '站长', admin: '管理员', organizer: '主办', user: '舟友' };
     const ROLE_CLASS = { site_admin: 'role-site', admin: 'role-admin', organizer: 'role-org', user: 'role-user' };
     const STATUS_TEXT = { upcoming: '即将举办', ongoing: '进行中', past: '已结束', unknown: '待定' };
@@ -130,6 +154,114 @@
     // 从 /account/{amid} 读取 amid
     const AMID = (location.pathname.split('/')[2] || '').replace(/\/+$/, '');
 
+    function eventHtml(ev) {
+      return `<a class="pf-event" href="/?event=${ev.id}">
+        <div class="pf-event-title">${esc(ev.title)}</div>
+        <div class="pf-event-meta">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))}</div>
+        <div class="pf-event-sub">${esc(ev.city || '')}${ev.venue ? ' · ' + esc(ev.venue) : ''}</div>
+      </a>`;
+    }
+    function moduleHtml(title, sub, list) {
+      const body = list && list.length
+        ? `<div class="pf-events">${list.map(eventHtml).join('')}</div>`
+        : `<div class="pf-empty">${esc(sub)}</div>`;
+      return `<section class="pf-card" aria-label="${esc(title)}">
+        <h2>${esc(title)}（${list ? list.length : 0}）</h2>
+        <div class="pf-sec-sub">${esc(sub)}</div>
+        ${body}
+      </section>`;
+    }
+
+    function renderProfile(d) {
+      const u = d.user;
+      const isSelf = !!u.is_self;
+      const initial = (u.display_name || u.amid || '?').slice(0, 1);
+      const joined = (u.joined_at || '').slice(0, 10) || '—';
+      const roleBadge = `<span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>`;
+      const avatar = u.avatar_url
+        ? `<div class="pf-avatar"><img src="${esc(u.avatar_url)}" alt=""></div>`
+        : `<div class="pf-avatar">${esc(initial)}</div>`;
+
+      const tags = [];
+      if (u.hypergryph_bound) tags.push('已绑定鹰角通行证');
+      const tagHtml = tags.length ? `<div class="pf-tags">${tags.map((t) => `<span class="pf-tag">${esc(t)}</span>`).join('')}</div>` : '';
+
+      // 个性化设置（仅自己可见）
+      const settingsHtml = isSelf ? `
+        <div class="pf-actions">
+          <button class="ak-btn ak-btn--primary ak-btn--sm" id="pf-edit">编辑资料</button>
+          <a class="ak-btn ak-btn--ghost ak-btn--sm" href="/account.html" style="text-decoration:none;">账户中心（改密码 / 绑定）</a>
+          <button class="ak-btn ak-btn--ghost ak-btn--sm" id="pf-logout">退出登录</button>
+        </div>` : '';
+
+      // 两模块标题（自己 / 他人 措辞不同）
+      const hostedTitle = isSelf ? '我主办的集会' : 'TA 的集会';
+      const hostedSub = isSelf ? '你认领并确认主办的活动' : '对方认领并确认主办的活动';
+      const contribTitle = isSelf ? '我分享的集会情报' : 'TA 分享的集会情报';
+      const contribSub = isSelf ? '你提交 / 补充的集会信息' : '对方提交 / 补充的集会信息';
+
+      document.getElementById('pf-body').innerHTML = `
+        <section class="pf-card" aria-label="用户信息">
+          <div class="pf-head">
+            ${avatar}
+            <div>
+              <div class="pf-name-row">
+                <span class="pf-display-name">${esc(u.display_name || u.amid)}</span>
+                ${roleBadge}
+              </div>
+              <div class="pf-meta">
+                <span>AMID <b>${esc(u.amid)}</b></span>
+                <span>加入于 <b>${esc(joined)}</b></span>
+              </div>
+              ${tagHtml}
+            </div>
+          </div>
+          ${settingsHtml}
+        </section>
+
+        ${moduleHtml(hostedTitle, hostedSub, d.hosted)}
+        ${moduleHtml(contribTitle, contribSub, d.contributed)}`;
+
+      if (isSelf) {
+        document.getElementById('pf-edit').onclick = openEdit;
+        document.getElementById('pf-logout').onclick = async () => {
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+          location.href = '/';
+        };
+      }
+    }
+
+    function openEdit() {
+      const cur = (document.querySelector('.pf-display-name') || {}).textContent || '';
+      const mask = document.createElement('div');
+      mask.className = 'pf-modal-mask';
+      mask.innerHTML = `
+        <div class="pf-modal">
+          <h3>编辑资料</h3>
+          <label>展示名（地图上显示的名字）</label>
+          <input id="pf-dn" maxlength="30" value="${esc(cur)}" />
+          <div class="pf-modal-actions">
+            <button class="ak-btn ak-btn--ghost ak-btn--sm" id="pf-cancel">取消</button>
+            <button class="ak-btn ak-btn--primary ak-btn--sm" id="pf-save">保存</button>
+          </div>
+        </div>`;
+      document.body.appendChild(mask);
+      mask.querySelector('#pf-cancel').onclick = () => mask.remove();
+      mask.querySelector('#pf-save').onclick = async () => {
+        const dn = mask.querySelector('#pf-dn').value.trim();
+        if (!dn) { toast('展示名不能为空'); return; }
+        const r = await fetch('/api/auth/me', {
+          method: 'PUT', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ display_name: dn }),
+        });
+        if (!r.ok) { toast('保存失败'); return; }
+        mask.remove();
+        toast('已保存');
+        loadProfile(); // 重新加载刷新展示名
+      };
+    }
+
     async function loadProfile() {
       const body = document.getElementById('pf-body');
       if (!/^AM-\d{8}$/.test(AMID)) {
@@ -148,45 +280,6 @@
       } catch {
         body.innerHTML = `<div class="pf-error"><div class="icon">⚠️</div><p>加载失败，请稍后重试</p><a class="ak-btn ak-btn--primary" href="/">返回地图</a></div>`;
       }
-    }
-
-    function renderProfile(d) {
-      const u = d.user;
-      const initial = (u.display_name || u.amid || '?').slice(0, 1);
-      const joined = (u.joined_at || '').slice(0, 10) || '—';
-      const roleBadge = `<span class="role-badge ${roleClass(u.role)}">${roleLabel(u.role)}</span>`;
-      const events = (d.events || []);
-
-      const eventsHtml = events.length
-        ? `<div class="pf-events">${events.map((ev) => `
-            <a class="pf-event" href="/?event=${ev.id}">
-              <div class="pf-event-title">${esc(ev.title)}</div>
-              <div class="pf-event-meta">${STATUS_TEXT[ev.status] || '待定'} · ${esc(fmtDate(ev))}</div>
-              <div class="pf-event-sub">${esc(ev.city || '')}${ev.venue ? ' · ' + esc(ev.venue) : ''}</div>
-            </a>`).join('')}</div>`
-        : `<div class="pf-empty">这位舟友还没有公开的集会记录。</div>`;
-
-      document.getElementById('pf-body').innerHTML = `
-        <section class="pf-card" aria-label="用户信息">
-          <div class="pf-head">
-            <div class="pf-avatar">${esc(initial)}</div>
-            <div>
-              <div class="pf-name-row">
-                <span class="pf-display-name">${esc(u.display_name || u.amid)}</span>
-                ${roleBadge}
-              </div>
-              <div class="pf-meta">
-                <span>AMID <b>${esc(u.amid)}</b></span>
-                <span>加入于 <b>${esc(joined)}</b></span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="pf-card" aria-label="举办的集会">
-          <h2>TA 的集会（${u.event_count}）</h2>
-          ${eventsHtml}
-        </section>`;
     }
 
     loadProfile();
