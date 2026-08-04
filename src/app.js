@@ -249,6 +249,7 @@ export function createApp() {
     const isSelf = !!(me && me.id === u.id);
     const identities = await db.getIdentities(c.env.DB, u.id);
     const hypergryphBound = (identities || []).some((i) => i.provider === 'hypergryph');
+    const hypergryphUid = (identities || []).find((i) => i.provider === 'hypergryph');
     const hosted = await db.getHostedEvents(c.env.DB, u.id, isSelf ? 'all' : 'public');
     const contributed = await db.getContributedEvents(c.env.DB, u.id, isSelf ? 'all' : 'public');
     return c.json({
@@ -260,6 +261,10 @@ export function createApp() {
         joined_at: u.created_at,
         is_self: isSelf,
         hypergryph_bound: hypergryphBound,
+        // 鹰角通行证 UID：公开展示（类似 AMID 的公开游戏 ID 铭牌）
+        hypergryph_uid: hypergryphUid ? hypergryphUid.provider_account_id : null,
+        // 邮箱：仅本人可见，避免泄露他人隐私
+        email: isSelf ? (u.email || null) : null,
       },
       hosted,
       contributed,
@@ -315,8 +320,13 @@ export function createApp() {
       const g = await geocode(data.address, data.city, c.env);
       if (g) { data.longitude = g.longitude; data.latitude = g.latitude; }
     }
-    const ev = await db.createEvent(c.env.DB, data);
-    return c.json({ ...ev, pending: review_status === 'pending' }, 201);
+    try {
+      const ev = await db.createEvent(c.env.DB, data);
+      return c.json({ ...ev, pending: review_status === 'pending' }, 201);
+    } catch (e) {
+      console.error('createEvent failed:', e);
+      return c.json({ error: '提交失败，请稍后重试' }, 500);
+    }
   });
 
   app.put('/api/events/:id', auth.requireAuth, async (c) => {
@@ -362,13 +372,28 @@ export function createApp() {
     const existing = await db.getEvent(c.env.DB, id);
     if (!existing) return c.json({ error: '未找到该活动' }, 404);
     if (existing.organizer_claim_status !== 'pending') return c.json({ error: '没有待审核的认领' }, 409);
-    const ev = await db.approveClaim(c.env.DB, id, c.get('user').id);
+    // 通过认领：活动归给发起认领的用户（organizer_claim_user_id），而非审核管理员
+    const ev = await db.approveClaim(c.env.DB, id);
+    return c.json(ev);
+  });
+
+  app.post('/api/events/:id/claim/reject', auth.requireAdminOrAbove, async (c) => {
+    const id = Number(c.req.param('id'));
+    const existing = await db.getEvent(c.env.DB, id);
+    if (!existing) return c.json({ error: '未找到该活动' }, 404);
+    if (existing.organizer_claim_status !== 'pending') return c.json({ error: '没有待审核的认领' }, 409);
+    const ev = await db.rejectClaim(c.env.DB, id);
     return c.json(ev);
   });
 
   // ---------------- 管理员：审核队列 ----------------
   app.get('/api/admin/review', auth.requireAdminOrAbove, async (c) => {
     return c.json(await db.listPendingEvents(c.env.DB));
+  });
+
+  // 待审认领（主办认领申请）
+  app.get('/api/admin/claims', auth.requireAdminOrAbove, async (c) => {
+    return c.json(await db.listPendingClaims(c.env.DB));
   });
 
   app.post('/api/admin/review/:id', auth.requireAdminOrAbove, async (c) => {

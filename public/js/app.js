@@ -522,7 +522,7 @@ function renderAuth() {
     const u = state.user;
     const isAdmin = u.role === 'admin' || u.role === 'site_admin';
     area.innerHTML = `
-      <a href="/account/${esc(u.amid)}" class="user-chip" style="cursor:pointer;text-decoration:none;" title="我的主页">
+      <a href="/account.html" class="user-chip" style="cursor:pointer;text-decoration:none;" title="账户中心">
         ${u.avatar_url
           ? `<img class="avatar-img" src="/api/avatar?u=${encodeURIComponent(u.avatar_url)}" alt="" onerror="this.style.display='none'">`
           : `<span class="avatar">${esc((u.display_name || u.username).slice(0, 1))}</span>`}
@@ -534,8 +534,8 @@ function renderAuth() {
       ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;
     document.getElementById('btn-logout').onclick = logout;
-    if (isAdmin) document.getElementById('btn-review').onclick = openReviewQueue;
-    if (u.role === 'site_admin') document.getElementById('btn-users').onclick = openUserAdmin;
+    if (isAdmin) document.getElementById('btn-review').onclick = () => { location.href = '/admin.html'; };
+    if (u.role === 'site_admin') document.getElementById('btn-users').onclick = () => { location.href = '/admin.html'; };
     if (submitBtn) { submitBtn.style.display = ''; submitBtn.onclick = () => openSubmit(); }
     const gb = document.getElementById('btn-geocode');
     if (gb) {
@@ -820,8 +820,8 @@ function openForm(ev, opts = {}) {
     ${isSupplement ? `<input type="hidden" id="f-sub-type" value="supplement" /><input type="hidden" id="f-parent" value="${sup.id}" />` : ''}
     <div class="modal-error" id="f-error"></div>
     <div class="modal-actions">
-      <button class="ak-btn ak-btn--primary" id="f-submit">${isSupplement ? '提交补充' : isEdit ? '保存' : '提交'}</button>
-      <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+      <button type="button" class="ak-btn ak-btn--primary" id="f-submit">${isSupplement ? '提交补充' : isEdit ? '保存' : '提交'}</button>
+      <button type="button" class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
     </div>`);
 
   document.getElementById('f-submit').onclick = () => submitForm(ev, opts);
@@ -921,6 +921,8 @@ function setPicked(lng, lat) {
 
 async function submitForm(ev, opts = {}) {
   const err = document.getElementById('f-error');
+  if (err) err.textContent = '';
+  try {
   const title = document.getElementById('f-title').value.trim();
   if (!title) { err.textContent = '请填写活动名称'; return; }
   const tags = document.getElementById('f-tags').value.split('、').map((s) => s.trim()).filter(Boolean);
@@ -960,8 +962,9 @@ async function submitForm(ev, opts = {}) {
   if (state._picked) { payload.longitude = state._picked.longitude; payload.latitude = state._picked.latitude; }
   const url = isEdit ? `/api/events/${ev.id}` : '/api/events';
   const r = await api(url, { method: isEdit ? 'PUT' : 'POST', body: JSON.stringify(payload) });
-  const d = await r.json();
-  if (!r.ok) { err.textContent = d.error || '提交失败'; return; }
+  let d = {};
+  try { d = await r.json(); } catch { /* 响应非 JSON（如 500 错误页），忽略解析 */ }
+  if (!r.ok) { err.textContent = (d && d.error) || '提交失败，服务器异常，请稍后重试'; return; }
   closeModal();
   state._picked = null;
   if (state.pickMarker) { state.pickMarker.setMap(null); state.pickMarker = null; }
@@ -969,6 +972,10 @@ async function submitForm(ev, opts = {}) {
   else if (isEdit) toast('已保存');
   else toast('提交成功，感谢贡献！');
   loadEvents();
+  } catch (e) {
+    console.error('submitForm error', e);
+    if (err) err.textContent = (e && e.message) ? e.message : '提交失败，请重试';
+  }
 }
 
 function openSupplement(parentEv) {

@@ -105,7 +105,7 @@ export async function getUserByEmail(db, email) {
 export async function getUserByAmid(db, amid) {
   if (!amid) return null;
   return db
-    .prepare('SELECT id, username, amid, display_name, role, avatar_url, created_at FROM users WHERE amid = ?')
+    .prepare('SELECT id, username, amid, display_name, role, avatar_url, email, created_at FROM users WHERE amid = ?')
     .bind(amid)
     .first();
 }
@@ -286,7 +286,17 @@ function parseRow(r) {
 }
 
 export async function createEvent(db, data) {
-  const n = normalizeEvent(data);
+  // 补齐全部列，避免部分提交（如仅填 title/city）时个别列值为 undefined，
+  // 导致 D1 bind 报 D1_TYPE_ERROR（undefined 不被支持）。
+  const EVENT_COLS = [
+    'title', 'start_date', 'end_date', 'province', 'city', 'district', 'country', 'venue',
+    'address', 'longitude', 'latitude', 'description', 'organizer', 'source_url', 'poster_url',
+    'verified', 'tags', 'submitted_by', 'review_status', 'submission_type', 'parent_event_id',
+    'organizer_user_id', 'organizer_claim_status', 'country_code', 'province_code', 'city_code',
+    'district_code', 'source', 'source_id', 'imported_at',
+  ];
+  const full = { ...Object.fromEntries(EVENT_COLS.map((c) => [c, null])), ...data };
+  const n = normalizeEvent(full);
   // 审核 / 认领相关字段（带安全默认值）
   n.review_status = data.review_status || 'approved';
   n.submission_type = data.submission_type || 'new';
@@ -303,22 +313,12 @@ export async function createEvent(db, data) {
   n.source = data.source || 'user';
   n.source_id = data.source_id || null;
   n.imported_at = data.imported_at || null;
+  const cols = EVENT_COLS;
+  const placeholders = cols.map(() => '?').join(', ');
+  const values = cols.map((c) => n[c]);
   const info = await db
-    .prepare(
-      `INSERT INTO conventions
-       (title, start_date, end_date, province, city, district, country, venue, address, longitude, latitude,
-        description, organizer, source_url, poster_url, verified, tags, submitted_by,
-        review_status, submission_type, parent_event_id, organizer_user_id, organizer_claim_status,
-        country_code, province_code, city_code, district_code, source, source_id, imported_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      n.title, n.start_date, n.end_date, n.province, n.city, n.district, n.country, n.venue, n.address,
-      n.longitude, n.latitude, n.description, n.organizer, n.source_url, n.poster_url,
-      n.verified, n.tags, n.submitted_by,
-      n.review_status, n.submission_type, n.parent_event_id, n.organizer_user_id, n.organizer_claim_status,
-      n.country_code, n.province_code, n.city_code, n.district_code, n.source, n.source_id, n.imported_at
-    )
+    .prepare(`INSERT INTO conventions (${cols.join(', ')}) VALUES (${placeholders})`)
+    .bind(...values)
     .run();
   return getEvent(db, Number(info.meta.last_row_id));
 }
@@ -403,18 +403,48 @@ export async function mergeSupplement(db, supplementId) {
 
 export async function requestClaim(db, id, userId) {
   await db
-    .prepare("UPDATE conventions SET organizer_claim_status = 'pending' WHERE id = ? AND organizer_claim_status = 'none'")
+    .prepare("UPDATE conventions SET organizer_claim_status = 'pending', organizer_claim_user_id = ? WHERE id = ? AND organizer_claim_status = 'none'")
+    .bind(userId, id)
+    .run();
+  return getEvent(db, id);
+}
+
+// 通过认领：把活动归给「发起认领的用户」（organizer_claim_user_id），而非审核管理员。
+export async function approveClaim(db, id) {
+  const ev = await getEvent(db, id);
+  if (!ev || ev.organizer_claim_status !== 'pending') return ev;
+  const claimer = ev.organizer_claim_user_id != null ? ev.organizer_claim_user_id : null;
+  await db
+    .prepare("UPDATE conventions SET organizer_claim_status = 'approved', organizer_user_id = ? WHERE id = ? AND organizer_claim_status = 'pending'")
+    .bind(claimer, id)
+    .run();
+  return getEvent(db, id);
+}
+
+// 驳回认领：回到未认领状态，清空申请人，允许重新申请。
+export async function rejectClaim(db, id) {
+  await db
+    .prepare("UPDATE conventions SET organizer_claim_status = 'none', organizer_claim_user_id = NULL WHERE id = ? AND organizer_claim_status = 'pending'")
     .bind(id)
     .run();
   return getEvent(db, id);
 }
 
-export async function approveClaim(db, id, userId) {
-  await db
-    .prepare("UPDATE conventions SET organizer_claim_status = 'approved', organizer_user_id = ? WHERE id = ? AND organizer_claim_status = 'pending'")
-    .bind(userId, id)
-    .run();
-  return getEvent(db, id);
+// 待审认领列表：organizer_claim_status = 'pending' 的活动，附带认领申请人信息。
+export async function listPendingClaims(db) {
+  const r = await db
+    .prepare(
+      `SELECT c.*, ${STATUS_SQL} AS status,
+        u.username AS submitted_by_name, u.amid AS submitted_by_amid,
+        cu.username AS claim_user_name, cu.amid AS claim_user_amid
+        FROM conventions c
+        LEFT JOIN users u ON u.id = c.submitted_by
+        LEFT JOIN users cu ON cu.id = c.organizer_claim_user_id
+        WHERE c.organizer_claim_status = 'pending'
+        ORDER BY c.updated_at ASC`
+    )
+    .all();
+  return (r.results || []).map(parseRow);
 }
 
 export async function updateEvent(db, id, data) {
