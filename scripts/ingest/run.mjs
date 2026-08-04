@@ -12,6 +12,12 @@
 //     --review-status pending|approved   覆盖默认审核状态（cpp 默认 pending）
 //     --approve                          等价于 --review-status approved
 //     --dry-run                          只生成 SQL 不写入远程 D1（核对用）
+//     --no-geocode                       关闭「写入后自动服务端补坐标」（默认开启）
+//
+// 重要：CPP / 千羽列表接口均不返回经纬度，记录写入时坐标为 NULL。
+// 写完 D1 后会自动用「高德 Web 服务逐条编码(带 city)」补齐缺坐标活动，
+// 避免活动无坐标 / 定位错误。务必用单条 geocode(address, city) 而非批量
+// （批量模式无法逐条指定城市，曾导致 135 条坐标落到错误省份）。
 //
 // cpp 数据源（无差别同人站 allcpp.cn）感谢 https://github.com/WindowsNoEditor/CPP_Search
 // 逆向出的真实列表接口（eventMainListV2.do，无需 App 原生桥/鉴权）。
@@ -20,6 +26,7 @@
 //       → wrangler d1 execute --remote --file 写入（ON CONFLICT(source,source_id) 幂等更新）。
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadGeo } from './geo.mjs';
 import { parseBilibiliFile } from './bilibili.mjs';
@@ -47,6 +54,7 @@ const keyword = valOf('--keyword');
 const doCpp = doAll || !!fromHtml || !!fromList || !!keyword || has('--cpp');
 const dryRun = has('--dry-run');
 const allTime = has('--all-time');
+const noGeocode = has('--no-geocode');
 const reviewStatus = has('--approve') ? 'approved' : (valOf('--review-status') || 'pending');
 const biliPath = valOf('--bilibili') || 'D:/13984/Documents/Tencent Files/1398473754/FileRecv/明日方舟活动信息_20260723_145440.txt';
 const qianPath = valOf('--qianyu') || path.join(__dirname, 'data', 'qianyu.csv');
@@ -141,6 +149,123 @@ async function main() {
   } catch (e) {
     console.error('❌ 写入失败：', e.message);
     process.exit(1);
+  }
+
+  // 写入后自动服务端补坐标（默认开启）：列表接口不带坐标，逐条用城市编码补齐。
+  if (noGeocode) {
+    console.log('（--no-geocode）跳过自动补坐标。');
+  } else {
+    await geocodeMissing(node, wrangler, DB);
+  }
+}
+
+// 把 .env 注入 process.env（仅当未设置时），供 server/geocode.js 读取高德密钥。
+function loadEnv() {
+  try {
+    const txt = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
+    for (const line of txt.split('\n')) {
+      const m = line.match(/^([A-Z_]+)=(.*)$/);
+      if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].trim();
+    }
+  } catch (e) { /* 无 .env 则跳过 */ }
+}
+
+// 从 wrangler --command 的 JSON 输出中稳健提取行数组。
+function extractRows(raw) {
+  const i = raw.indexOf('[');
+  if (i < 0) return [];
+  const d = JSON.parse(raw.slice(i));
+  let arr = d[0] && d[0].results;
+  if (Array.isArray(arr)) {
+    if (arr.length && Array.isArray(arr[0] && arr[0].results)) return arr[0].results;
+    return arr;
+  }
+  return [];
+}
+
+// 写入后用「高德 Web 服务单条 geocode(address, city)」补齐缺坐标活动。
+// 关键：必须逐条指定城市（批量模式无 city 参数，会把歧义场馆名编到错误省份）。
+// 采用多策略 + QPS 退避（与 fix_coords 同款），确保「区+场馆名」「仅城市中心」都能解析。
+const AMAP_KEY = (() => { loadEnv(); return process.env.AMAP_WEB_KEY || process.env.AMAP_REST_KEY || ''; })();
+const AMAP_SECRET = (() => { loadEnv(); return process.env.AMAP_WEB_SECRET || ''; })();
+
+function buildAmapParams(obj) {
+  const p = new URLSearchParams();
+  Object.keys(obj).forEach((k) => { if (obj[k] != null && obj[k] !== '') p.set(k, obj[k]); });
+  if (AMAP_SECRET) {
+    const sorted = Object.keys(obj).filter((k) => obj[k] != null && obj[k] !== '')
+      .sort().map((k) => `${k}=${obj[k]}`).join('&');
+    p.set('sig', crypto.createHash('md5').update(sorted + AMAP_SECRET).digest('hex'));
+  }
+  return p;
+}
+
+async function geocodeOne(address, city) {
+  const strategies = [address, (city ? city + ' ' : '') + (address || ''), city].filter(Boolean);
+  for (const addr of strategies) {
+    let attempt = 0, result = null;
+    while (attempt <= 4) {
+      try {
+        const params = buildAmapParams({ key: AMAP_KEY, address: addr, city: city || '', output: 'JSON' });
+        const resp = await fetch(`https://restapi.amap.com/v3/geocode/geo?${params.toString()}`);
+        const data = await resp.json();
+        if (data.status === '1' && data.geocodes && data.geocodes.length) {
+          const g = data.geocodes[0];
+          const [lng, lat] = (g.location || '').split(',').map(Number);
+          if (!Number.isNaN(lng) && !Number.isNaN(lat)) { result = { longitude: lng, latitude: lat }; break; }
+        } else if (data.infocode === '10044' || /CUQPS_HAS_EXCEEDED/.test(data.info || '')) {
+          attempt++; await sleepGeo(1000 * attempt); continue;
+        } else break;
+      } catch (e) { attempt++; await sleepGeo(1000 * attempt); }
+    }
+    if (result) return result;
+  }
+  return null;
+}
+
+const sleepGeo = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function geocodeMissing(node, wrangler, DB) {
+  if (!AMAP_KEY) {
+    console.log('（跳过自动补坐标：未配置 AMAP_WEB_KEY）');
+    return;
+  }
+  const q = `SELECT id, address, city, district FROM conventions WHERE longitude IS NULL OR latitude IS NULL;`;
+  let rows;
+  try {
+    const raw = execFileSync(node, [wrangler, 'd1', 'execute', DB, '--remote', '--command', q],
+      { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
+    rows = extractRows(raw);
+  } catch (e) {
+    console.error('（跳过自动补坐标：查询失败）', e.message);
+    return;
+  }
+  if (!rows.length) { console.log('（自动补坐标：无缺坐标活动）'); return; }
+
+  console.log(`自动补坐标：发现 ${rows.length} 条缺坐标，逐条用城市编码 ...`);
+  const outSql = [];
+  for (const r of rows) {
+    const addr = [r.district, r.address].filter(Boolean).join(' ');
+    let loc = null;
+    try { loc = await geocodeOne(addr, r.city); } catch (e) { /* 忽略单条错误 */ }
+    if (loc) {
+      outSql.push(`UPDATE conventions SET longitude=${loc.longitude}, latitude=${loc.latitude} WHERE id=${r.id};`);
+    } else {
+      console.log(`  ! 无法编码 #${r.id}（${r.city}/${r.address || '无地址'}）— 需人工补`);
+    }
+    await sleepGeo(200);
+  }
+  if (outSql.length) {
+    const f = path.join(__dirname, 'data', 'geocode_auto.sql');
+    fs.writeFileSync(f, outSql.join('\n'));
+    try {
+      execFileSync(node, [wrangler, 'd1', 'execute', DB, '--remote', '--file=' + f], { encoding: 'utf8' });
+      console.log(`✅ 自动补坐标完成：${outSql.length}/${rows.length} 条`);
+    } catch (e) {
+      console.error('❌ 自动补坐标写入失败：', e.message);
+    }
+  } else {
+    console.log('（自动补坐标：无成功编码）');
   }
 }
 

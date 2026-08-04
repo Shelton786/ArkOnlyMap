@@ -10,3 +10,6 @@ tmp/
 .workbuddy/
 *.log
 
+# ingest 一次性导出 / 中间产物（勿入库）：全量导出、regeo 校验结果、手工补坐标清单等
+scripts/ingest/data/*.json
+
