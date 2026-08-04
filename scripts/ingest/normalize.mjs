@@ -55,7 +55,8 @@ export function normalize(raw, source) {
     source,
     source_id: raw.source_id ? String(raw.source_id) : null,
     imported_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
-    review_status: 'approved', // 可信源自动过审
+    // 默认可信源自动过审；但允许来源显式指定（如 cpp 首跑用 'pending' 待人工核对映射）
+    review_status: raw.review_status || 'approved',
   };
 }
 

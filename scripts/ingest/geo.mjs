@@ -75,7 +75,27 @@ export function resolveCode(loc = {}) {
   return out;
 }
 
-export default { resolveCode, COUNTRIES, codeToNames };
+export default { resolveCode, COUNTRIES, codeToNames, findCityInText };
+
+/**
+ * 从一段自由文本里匹配已知城市名，补全 city_name / city_code。
+ * 用于来源未给出结构化城市字段时的兜底（如 CPP 详情页 eventCity 为空，
+ * 但 App 保存的搜索页带有「地点：无锡市新吴 | 场馆」文本）。
+ * @param {string} text
+ * @returns {{city_name:string, city_code:string} | null}
+ */
+export function findCityInText(text) {
+  if (!text) return null;
+  const G = GEO;
+  if (!G || !G.cityIndex) return null; // 未 loadGeo 时安全返回，不抛错
+  // 长名优先匹配，避免「市」之类短词误命中
+  const keys = Object.keys(G.cityIndex).sort((a, b) => b.length - a.length);
+  for (const k of keys) {
+    const base = k.replace(/(省|市|自治区|特别行政区|地区|自治州|盟|县|区|市辖区)$/, '');
+    if (base && text.includes(base)) return { city_name: k, city_code: G.cityIndex[k] };
+  }
+  return null;
+}
 
 /**
  * 反向：6 位区编码 -> 省/市/区名称（用于从区县反推城市文字）。

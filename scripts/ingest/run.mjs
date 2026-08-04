@@ -1,9 +1,14 @@
 // 采集编排 + 写入 D1。
 // 用法：
 //   node scripts/ingest/run.mjs --bilibili "<朋友导出的txt>"   # 半自动：朋友抓包文件
-//   node scripts/ingest/run.mjs --cpp                          # 自动：cpp 接口（需可访问）
+//   node scripts/ingest/run.mjs --from-html "<App另存为的搜索页.html>"   # cpp 模式A：解析列表HTML
+//   node scripts/ingest/run.mjs --from-list "<id清单.txt|.json>"          # cpp 模式B：ID/URL 清单
 //   node scripts/ingest/run.mjs --qianyu [csv路径]             # 自动：千羽腾讯文档导出的 CSV
 //   node scripts/ingest/run.mjs --all                          # 全部
+//   通用选项：
+//     --review-status pending|approved   覆盖默认审核状态（cpp 默认 pending）
+//     --approve                          等价于 --review-status approved
+//     --dry-run                          只生成 SQL 不写入远程 D1（核对用）
 //
 // 行为：收集 canonical 记录 → 生成 scripts/ingest/data/ingest.sql
 //       → wrangler d1 execute --remote --file 写入（ON CONFLICT(source,source_id) 幂等更新）。
@@ -27,8 +32,13 @@ const has = (f) => args.includes(f);
 const valOf = (f) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : null; };
 const doAll = has('--all');
 const doBili = doAll || has('--bilibili');
-const doCpp = doAll || has('--cpp');
 const doQian = doAll || has('--qianyu');
+// cpp 输入模式：--from-html（App 另存为的搜索页）/ --from-list（ID/URL 清单）。--cpp 为旧写法，需配合二者之一。
+const fromHtml = valOf('--from-html');
+const fromList = valOf('--from-list');
+const doCpp = doAll || !!fromHtml || !!fromList || has('--cpp');
+const dryRun = has('--dry-run');
+const reviewStatus = has('--approve') ? 'approved' : (valOf('--review-status') || 'pending');
 const biliPath = valOf('--bilibili') || 'D:/13984/Documents/Tencent Files/1398473754/FileRecv/明日方舟活动信息_20260723_145440.txt';
 const qianPath = valOf('--qianyu') || path.join(__dirname, 'data', 'qianyu.csv');
 
@@ -69,9 +79,13 @@ async function main() {
     console.log(`[bilibili] ${rs.length} 条（${biliPath}）`);
   }
   if (doCpp) {
-    const rs = await fetchCpp();
-    records.push(...rs.map((r) => ({ ...r, _src: 'cpp' })));
-    console.log(`[cpp] ${rs.length} 条`);
+    if (has('--cpp') && !fromHtml && !fromList) {
+      console.warn('[cpp] 旧写法 --cpp 需要配合 --from-html 或 --from-list 指定输入文件，已跳过 cpp。');
+    } else {
+      const rs = await fetchCpp({ mode: fromHtml ? 'html' : 'list', inputFile: fromHtml || fromList, reviewStatus });
+      records.push(...rs.map((r) => ({ ...r, _src: 'cpp' })));
+      console.log(`[cpp] ${rs.length} 条`);
+    }
   }
   if (doQian) {
     const rs = await parseQianyu(qianPath);
@@ -95,6 +109,12 @@ async function main() {
   fs.mkdirSync(path.dirname(SQL_PATH), { recursive: true });
   fs.writeFileSync(SQL_PATH, sqls.join('\n'));
   console.log(`生成 ${sqls.length} 条 SQL（其中 ${withCode} 条解析到行政区划编码）-> ${SQL_PATH}`);
+
+  // dry-run：只生成 SQL，不写入远程 D1
+  if (dryRun) {
+    console.log('（dry-run）未写入远程 D1。可直接打开上面的 SQL 文件核对映射。');
+    return;
+  }
 
   // 写入远程 D1
   const wrangler = path.join(ROOT, 'node_modules', 'wrangler', 'bin', 'wrangler.js');

@@ -1,0 +1,4 @@
+# CPP 活动 ID 清单（每行一个 ID 或详情页链接；# 开头为注释）
+# 示例：ONLY·临界·寻遗X明日方舟终末地ONLY
+7057
+# 也可写完整链接：https://www.allcpp.cn/allcpp/event/event.do?event=7057

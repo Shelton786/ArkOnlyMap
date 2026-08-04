@@ -1,0 +1,512 @@
+<!Doctype html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh">
+<head>
+    <meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="pragma" content="no-cache" />
+<meta name="description" content="无差别同人站拥有国内各类同人展会、同人展品资讯，致力于为广大的同人文化爱好者提供一个信息交流服务平台。"> 
+<meta name="keywords" content="同人,同人展,同人本,漫展,展品,only展,cp,comicup,创作交流展,东方,国产,原创,衍生品,粉丝经济">
+<title> 无差别同人站</title>
+<link rel="shortcut icon" type="image/x-icon" href="https://cppstatic.allcpp.cn/cn/static/img/allcpp/favicon.ico" media="screen" />
+<script type="text/javascript" src="https://cppstatic.allcpp.cn/cn/static/js/jquery-1.11.3/jquery.min.js"></script>
+<script type="text/javascript" src="https://cppstatic.allcpp.cn/cn/static/js/jquery-1.11.3/jquery.cookie.js"></script>
+<script type="text/javascript" src="https://cppstatic.allcpp.cn/cn/static/js/jquery-1.11.3/moment.min.js"></script>
+<script type="text/javascript" src="https://cppstatic.allcpp.cn/cn/static/js/jquery-1.11.3/socket.io-2.0.3.js"></script>
+<script type="text/javascript" src="https://cppstatic.allcpp.cn/cn/static/js/allcpp/common.js"></script>
+<script type="text/javascript" src="https://cppstatic.allcpp.cn/static/service.js"></script>
+<script src="https://cppstatic.allcpp.cn/cn/static/cdn/bootcdn/axios/0.19.2/axios.min.js"></script>
+<script>
+function isIE(){ 
+  var userAgent = navigator.userAgent; //取得浏览器的userAgent字符串
+    var isIE = userAgent.indexOf("compatible") > -1 && userAgent.indexOf("MSIE") > -1; //判断是否IE<11浏览器
+    var isEdge = userAgent.indexOf("Edge") > -1 && !isIE; //判断是否IE的Edge浏览器
+    var isIE11 = userAgent.indexOf('Trident') > -1 && userAgent.indexOf("rv:11.0") > -1;
+    return isIE|| isIE11;
+}
+if(isIE()){
+  window.location.href = "https://cp.awsl.wang/browser.html"
+}
+</script>
+<link rel="stylesheet" type="text/css" href="https://cppstatic.allcpp.cn/cn/static/css/allcpp/common.css?v20260804102" />
+<script type="text/javascript">
+var staticRoot= "https://cppstatic.allcpp.cn/cn/static/";
+var webRoot = "https://www.allcpp.cn/";
+var picUrlRoot = "https://imagecdn3.allcpp.cn/upload";
+var isWebUrl = 1;
+var userEnabled=3;
+var IS_USER_TRUENAME=false;
+</script>    <script type="text/javascript">
+    var worksUe="";var isCircleMember=-1;
+    </script>
+    <link rel="stylesheet" type="text/css" href="https://cppstatic.allcpp.cn/cn/static/css/allcpp/event/event2.css?v2026080410">
+    <script src="https://cppstatic.allcpp.cn/cn/static/js/allcpp/event/eventFunction.js?v2026080410"></script>
+</head>
+<body>
+<div id="bgCover" style="display:none;"></div>
+<div id="nav-bar">
+    <div class="container">
+        <div class="nav-left">
+                        <a href="//cp.allcpp.cn/#/discovery"><img src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/wcbsmalllogo.png"></a>
+            <ul class="nav-bar-list">
+                <!--<li id="nav-index"><a href="https://www.allcpp.cn/allcpp/index.do">首页</a></li>-->
+                <li id="nav-hhy"><a href="//cp.allcpp.cn/discovery">后花园</a></li>
+                <li id="nav-event"><a href="//cp.allcpp.cn/event/search">活动</a></li>
+                <li id="nav-benzi"><a href="//cp.allcpp.cn/doujinshi">展品</a></li>
+                <li id="nav-lolita"><a href="//cp.allcpp.cn/lolita">服装</a></li>
+                <li id="nav-comic"><a href="//cp.allcpp.cn/comicHome">原创漫画</a></li>  
+            </ul>
+        </div>
+        <div class="nav-center">
+            <div class="nav-search ">
+                <input type="text" class="nav-search-con-true" autocomplete="off" maxlength="40"  placeholder="搜索..." name="search-all-txt">
+                <input type="text" class="nav-search-con-false" name="username"  autocomplete="off" />
+                <span class="webcpp-i-search"></span>
+            </div>
+            <div class="nav-search-about">
+                <div class="triangle-span">
+                </div>
+                <div class="nav-search-a-box djs">
+                    <div class="nav-search-a-box-padding">
+                        <i class="webcpp-i-book"></i><div class="nav-search-a-txt">搜索"<span class="textDian"></span>"展品</div><i class="webcpp-i-arrow-right"></i>
+                    </div>
+                </div>
+                <div class="nav-search-a-box works">
+                    <div class="nav-search-a-box-padding">
+                        <i class="webcpp-i-img2"></i><div class="nav-search-a-txt">搜索"<span class="textDian"></span>"图文</div><i class="webcpp-i-arrow-right"></i>
+                    </div>
+                </div>
+                <div class="nav-search-a-box tags">
+                    <div class="nav-search-a-box-padding">
+                        <i class="webcpp-i-search-tag"></i><div class="nav-search-a-txt">搜索"<span class="textDian"></span>"粮坑</div><i class="webcpp-i-arrow-right"></i>
+                    </div>
+                </div>
+                <div class="nav-search-a-box users">
+                    <div class="nav-search-a-box-padding">
+                        <i class="webcpp-i-search-user"></i><div class="nav-search-a-txt">搜索"<span class="textDian"></span>"用户</div><i class="webcpp-i-arrow-right"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="nav-right">
+            <!-- 未登录-->
+            <div class="nav-nologin"><a id="login-a-btn">登录 / 注册</a></div>
+        </div>
+        
+    </div>
+</div><div class="toolbar" style="display:none">
+   <a href="###" class="toolbar-item toolbar-item-feedback" style="display:none"></a>
+   <a href="###" class="toolbar-item toolbar-item-app">
+    <span class="toolbar-layer"></span>
+   </a>
+   <a href="javascript:scroll(0,0)" id="top" class="toolbar-item toolbar-item-top"></a>
+</div><div id="main">
+    <div class="container">
+        <!--左侧-->
+        <div id="event-left" class="content" data-name="event7057">
+            <div id="event-cover" data-name="titlePic12197793" 
+            style="background-image: url(https://imagecdn3.allcpp.cn/upload/2026/6/37ef4956-5a43-4137-abc9-d165ebcc156e.png?x-oss-process=style/all_lfit_900)" >
+                 <img id="only-img" src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/icon/isonly.png" style="position: absolute;"  >
+               
+            </div>
+            <!-- 基础信息 -->
+            <div id="info">
+                <div class="info-show clearfix">
+                    <h1 class="info-show-title">
+                        <span>ONLY · </span> 
+                        临界·寻遗X明日方舟终末地ONLY
+                    </h1>
+                    <div class="info-show-txt" style="display:none">
+                    </div>
+                    <div class="info-show-btn clearfix">
+                        <a class="cpp-btn btn-cpp-buy" data-href="/ticket/detail?event=7057">
+                            
+                        </a>
+                            <a class="btn-map" style="display:none"></a>
+                    </div>
+                </div>
+            </div>
+            <!--展品 && 社团-->
+            <div id="djs-orgs">
+                <div class="event-day-tab clearfix">
+                    <div class="event-days clearfix">
+                                    <span data-id="7812" class="active">本届</span>
+                    </div>
+                    <div class="event-search clearfix">
+                        <button>搜 索</button>
+                        <input type="text" name="search-djs" placeholder="请输入关键字">
+                    </div>
+                </div>
+                <p class="no-txt">登录后可查看参展作品和社团</p>
+                <button class="cpp-login-btn cpp-btn">立即登录</button>
+            </div>
+            <!--活动描述-->
+            <div id="des" style="display:none">
+            </div>
+            <!--后花园-->
+            <div id="works">
+                <h1 class="title">后花园</h1>
+<iframe id="works-send-pup-iframe" src="" style="display:none"></iframe>
+<script type="text/javascript" src="https://cppstatic.allcpp.cn/cn/static/js/allcpp/work/newSendWork.js"></script>
+<!-- repo发送框 -->
+<div id="new-works">
+    <div id="new-send-work">
+                <div class="n-s-right">
+            <label class="n-s-txt" style="display:none">快来发个repo吧~===></label>
+            <a class='cpp-btn' data-obj="-1" data-type="1" id="n-s-wen-btn"><i class="webcpp-i-text"></i>发文</a>
+            <a class='cpp-btn' data-obj="-1" data-type="0" id="n-s-wen-tu"><i class="webcpp-i-img2"></i>发图</a>
+            <a class='cpp-btn' data-obj="-1" data-type="2" id="n-s-wen-chat"><i class="webcpp-i-chat"></i>发闲话</a>
+        </div>
+    </div>
+    <h1 id="repo-title">REPO列表</h1>
+    <ul id="new-work-list">
+    </ul>
+<div class="loading">
+            <div class="loading-dot-box">
+                <div class="loading-dot"><div class="d1"></div></div><div class="loading-dot"><div class="d2"></div></div><div class="loading-dot"><div class="d3"></div></div>
+            </div>
+</div></div>               </div>
+        </div>
+
+        <!--右侧-->
+        <div id="event-right">
+            <div id="event-leftDay" class="right-box">
+                <div class="event-leftDay">
+                    开展倒计时<span>-</span><span>-</span><span>-</span>天
+                </div>
+                <div class="event-want-pepple">
+                    <h1><label>54人想去</label><a>查看全部</a></h1>
+                    <ul></ul>
+                </div>
+            </div>
+            <a class="right-old-box " id="want-go">
+                我想去！
+            </a>
+            <!-- 
+                1  / canApplyPosition 是否开启申摊摊位的功能 0 1 
+                0  / canAddDoujinshi 是否可以添加展品           0 1
+                1  / isApplyPositionStart 摊位申请是否是开始状态  0 1
+                0  / approveClosed 0 是开启 1 是结束
+                no /isUserApplyPosition  是否申请过 0 1
+            -->
+                                <a id="right-position-btn" class="right-old-box " href="https://www.allcpp.cn/mng/apply.do?id=7057">
+                                申请摊位
+                                </a>
+
+            
+            <div class="right-box" id="positionLink">
+                <h1 class="title">场地图<span class="num">(0)</span><a class="link">查看全部</a></h1>
+            </div>
+            <div class="right-box" id="notice-box">
+                <h1 class="title">活动公告<span class="num">(0)</span><a class=""></a></h1>
+                <ul id="notice-list" class="right-box-cont">
+                </ul>
+                <ul id="notice-tab-dian" >
+                </ul>
+            </div>
+            <div id="customImg" >
+                <div id="customImgLink"></div>
+                <div class="confirm_dialog"></div>
+            </div>
+            
+            <div class="right-box">
+                <h1 class="title">相关标签</h1>
+                <ul class="right-box-cont" id="r-tag-list">
+                                <li class="textDian"><i class="webcpp-i-tag"></i><a href="https://cp.allcpp.cn/tag/pic?tag=明日方舟" title="明日方舟" target='_blank'>明日方舟</a></li>
+                                <li class="textDian"><i class="webcpp-i-tag"></i><a href="https://cp.allcpp.cn/tag/pic?tag=终末地" title="终末地" target='_blank'>终末地</a></li>
+                </ul>
+            </div>
+            <div class="right-box" id="event-user">
+                <h1 class="title">主办信息
+                </h1>
+                <div class="right-box-cont" id="event-user-con">
+                        <img src="//imagecdn3.allcpp.cn/face/2026/6/a5d0a9c8-97aa-41d7-8a16-6e9079ade92b?x-oss-process=style/square_150_70">
+                    <div class="event-user-info">
+                        <h1 class="textDian"><a href="https://www.allcpp.cn/u/1232335.do" target='_blank' title="无锡ONLY小能手">
+                            无锡ONLY小能手</a>
+                                <span class="event-user-p">个人</span>
+                        </h1>
+                        <label>
+                                    举办活动 3次
+                        </label>
+                    </div>
+                </div>
+            </div> 
+            <div class="right-box" id="event-user-event" >
+                <h1 class="title">主办的往届活动
+                </h1>
+                <div class="right-box-cont" >
+                        <a class="event-user-event-a" target="_blank" href="https://www.allcpp.cn/allcpp/event/event.do?event=4925">
+                                <img src="//imagecdn3.allcpp.cn/upload/2025/4/ee6339f5-9d43-4035-af52-611b8b72a83d.jpg?x-oss-process=style/rectangle_300-150_60" />
+                            <h1 class="text-huanhang-dian">
+                                综合展·第八届奶黄包国漫嘉年华
+                            </h1>
+                        </a>
+                        <a class="event-user-event-a" target="_blank" href="https://www.allcpp.cn/allcpp/event/event.do?event=4075">
+                                <img src="//imagecdn3.allcpp.cn/upload/2024/11/69f88ad0-9774-44cd-8401-c6ecfa3ac693.jpg?x-oss-process=style/rectangle_300-150_60" />
+                            <h1 class="text-huanhang-dian">
+                                综合展·第六届无锡奶黄包国漫嘉年华
+                            </h1>
+                        </a>
+                </div>
+            </div>  
+        </div>
+
+
+    </div>
+</div>
+
+
+
+<!-- 加入行程 -->
+<div id="want-go-box" class="floatWin" style="display:none;">
+    <div class="del"><b>×</b></div>
+    <div class="content c-0">
+        <h1>加入行程</h1>
+        <p>加入行程后，可以收到该活动的相关消息提醒。<br>点击红框可取消该行程。</p>
+        <div class="gongkai xing" data-id="1">我要公开行程</div>
+        <div class="gengtan" data-id="2">我要跟摊参展<label>跟摊参展将公开行程</label></div>
+        <div class="yinshen xing" data-id="0">我要隐身前往<label>不对读者显示动态</label></div>
+        <div class="btn">
+            <button class="cpp-btn-g">取消</button>
+            <button class="cpp-btn">确认</button>
+        </div>
+    </div>
+    <div class="content c-1" style="display:none">
+        <h1>跟摊参展</h1>
+        <p>选择想要跟摊参展的社团或者摊位</p>
+        <div class="z-c-list">
+                <div class="z-c-box">
+                    <span>D1：</span>
+                    <div id="z-c-7812" data-id="7812">选择社团</div>
+                </div>
+        </div>
+        <div class="btn">
+            <button class="cpp-btn-g">返回</button>
+            <!-- <button class="cpp-btn">确认</button> -->
+        </div>
+    </div>
+</div>
+<div class="setPopup floatWin" id="user-circle-event" style="width: 880px; margin-left: -440px; display: none;top:30%;min-height:370px;">
+    <div class="pp-close"></div>
+    <div class="pp-cont" id="uce-pup-box">
+        <h1 class="title">选择跟摊摊位</h1>
+        <div class="uce-info" id="my-uce" style="display:none">
+            <span class="uce-del">×</span>
+            <img src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/faceImg.jpg">
+            <div class="right">
+                <h1 class="textDian"></h1>
+                <span class="textDian c-name" ></span>
+                <span class="textDian p-name"></span>
+            </div>
+        </div>
+        <div class="search-uce clearfix">
+            <button>搜索</button>
+            <input type="text" placeholder="请输入社团名或摊位名查找摊位">
+        </div>
+        <ul class="uce-pup-list"></ul>
+        <div class="cpp-page"></div>
+    </div>
+</div>
+<div class="setPopup floatWin" id="djs-tj-pup" style="display:none;">
+    <div class="pp-close"></div>
+    <div class="pp-cont" id="djs-tj-pup-box">
+        <h1 class="tj-title">他们想去这个活动</h1>
+        <ul class="tj-pup-list"></ul>
+        <div class="cpp-page"></div>
+    </div>
+</div>
+<div id="positionPic" class="floatPic" style="display:none;">
+    <div class="del"><b>×</b></div>
+    <div class="picTitle"></div>
+    <div class="picChange" style="display:none;"></div>
+    <div class="picContent">
+        <div class="prev disabled"></div>
+        <div class="content active"><span style="line-height: 500px;">暂无图片</span></div>
+        <div class="next disabled"></div>
+    </div>
+</div>
+<div id="gz-zb" class="floatWin" style="display:none;width:600px;height:395px;margin:-200px 0 0 -300px">
+    <div class="del"><b>×</b></div>
+    <div class="gz-zb-title">关注活动主办，<br>可以在第一时间在<span>同好圈</span>获得活动咨询哦~</div>
+    <div class="gz-zb-user">
+        <a href="https://www.allcpp.cn/u/1232335.do" target='_blank' title="无锡ONLY小能手">
+        <img src="https://imagecdn3.allcpp.cn/face/2026/6/a5d0a9c8-97aa-41d7-8a16-6e9079ade92b">
+        <h1 class="textDian">
+        无锡ONLY小能手
+        </h1>
+        </a>
+    </div>
+    <div class="gz-zb-btn">
+        <button class="cpp-btn-g">暂不关注</button>
+        <button class="cpp-btn">关注</button>
+    </div>
+</div>
+
+<div class="setPopup floatWin" id="rule" style="display:none">
+    <div class="pp-close"></div>
+    <div class="pp-cont clearfix">
+        <div class="event-rule">
+            <div class="event-rule-txt">
+                <h1>本届活动说明</h1>
+                <p></p>
+            </div>
+            <button class="cpp-btn" id="next-rule">下一步</button>
+        </div>
+        <div class="cpp-rule-box" style="display:none">
+            <div class="cpp-rule"></div>
+            <button class="cpp-btn-g" id="back-rule">上一步</button>
+            <button class="cpp-btn" id="go-apply">关闭</button>
+        </div>
+    </div>
+</div>
+
+
+<form role="form" id="the-pic-form" name="picForm" enctype="multipart/form-data">
+    <input id="upload-a-img-file" type="file" name="picFile" accept="image/png,image/gif,image/jpeg" style="display:none">
+</form><!-- 后花园的举报 -->
+    <div class="setPopup floatWin" id="works-report" style="display:none; top: 34%;left: 44%;">
+        <div class="pp-close"></div>
+        <div class="pp-cont">
+            <h1>举报理由</h1>
+            <ul style="margin: 25px 0 15px">
+            	<li style="margin: 7px 0"><input name="works-report-res" type="radio" value="垃圾广告" checked="true">　垃圾广告</li>
+            	<li style="margin: 7px 0"><input name="works-report-res" type="radio" value="不实信息">　不实信息</li>
+            	<li style="margin: 7px 0"><input name="works-report-res" type="radio" value="不良内容">　不良内容</li>
+            	<li style="margin: 7px 0"><input name="works-report-res" type="radio" value="人身攻击">　人身攻击</li>
+            </ul>
+            <button class='cpp-btn' data-id="0" style="width:100%;font-size:14px">确定</button>
+        </div>
+    </div>    <!-- tag -->
+    <div id="cpp-tag-cover" style="display:none;"></div>
+    <div class="setPopup floatWin" id="cpp-tag-box" style="display:none">
+        <div class="pp-cont">
+            <img class="xiaowu" src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/wu.png">
+            <h1 class="tag-title"><img src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/icon/r-tag.png"></h1>
+            <p class="cont">订阅自己感兴趣的粮坑，有新展品新活动第一时间就能知道啦！</p>
+            <ul class="tag-ul">
+                
+            </ul>
+            <div class="tag-btn">
+                <button class="cpp-btn-g">以后再选</button>
+                <button class="cpp-btn">选好了，去看看展品</button>
+            </div>
+            
+        </div>
+    </div><div id="login-p" class="floatWin" style="display:none;">
+    <div class="del"><b>×</b></div>
+    <div class="content">
+        <input id="l-p-user-id" type="text" placeholder="手机号/id"/>
+        <input id="l-p-user-pd" type="password" placeholder="密码"/>
+        <div class="row error" style="display:none;">哎呀出错了,请再试一次噢~</div>
+        <button id="l-p-user-login">立即登录</button>
+        <div class="row info">
+            <a id="login-p-forget" target="_blank">忘记密码?</a>
+            <a id="login-p-register"  style="float: right">注册新账号</a>
+        </div>
+    </div>
+</div>
+
+
+<div id="infoMsg" class="infoMsg" style="display:none;"></div>
+<div id="warning" class="warning" style="display:none;">xxx错误</div><div id="footer">
+    <div class="container">
+        <div class="col">
+            <p>无差别同人站</p>
+            <div class="row"><a href="https://www.allcpp.cn/w/1651.do" target="_blank">关于我们</a></div>
+            <div class="row"><a title="cpp@comicup.cn" href="https://www.allcpp.cn/w/5089797.do" target="_blank">联系我们</a></div>
+            <div class="row"><a href="https://www.allcpp.cn/w/6005.do" target="_blank">加入我们</a></div>
+            <div class="row"><a href="https://www.allcpp.cn/mng/npc.do" target="_blank">npc申请</a></div>
+        </div>
+        <div class="col">
+            <p>同人文化</p>
+            <div class="row"><a href="https://www.allcpp.cn/s/3432.do" target="_blank">同人科普</a></div>
+            <div class="row"><a href="https://www.allcpp.cn/w/140481.do" target="_blank">零盗版宣言</a></div>
+            <div class="row"><a href="https://www.allcpp.cn/w/141382.do?redirect=false" target="_blank">社区规则</a></div>
+        </div>
+        <div class="col">
+            <p>服务</p>
+            <div class="row"><a href="http://www.allcpp.cn/s/18199.do" arget="_blank">常见问题</a></div>
+            <div class="row"><a href="http://www.allcpp.cn/w/156176.do">用户协议</a></div>
+             
+        </div>
+        <div class="col">
+            <p style="display:none">下载CPP扫本利器</p>
+            <div class="secondd">
+                <img src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/2d/appdown.png" width="100" />
+                <div class="row-2">
+                    CPP 客户端下载
+                </div>
+                <div class="row-2">
+                    iOS / Android
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container" style="margin-top:40px;text-align:center">
+        <img src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/icon/foot-logo.png" height="32" />
+        <div class="copy">
+                <a href="https://beian.miit.gov.cn/" target="_blank">沪ICP备15000050号-2</a>
+                &nbsp;&nbsp;
+                沪公网安备 31011002004615号 <br/>
+                沪网文(2024)1513-102号&nbsp;&nbsp;
+                增值电信经营许可证：沪B2-20200541<br/>
+            Copyright (C) www.allcpp.cn All rights reserved.
+        </div>
+        <a href="http://weibo.com/u/5701747600?topnav=1&wvr=6&topsug=1" target="_blank"><img class="right" src="https://cppstatic.allcpp.cn/cn/static/img/allcpp/icon/foot-weibo.png" /></a>
+    </div>
+</div>    <script type="text/javascript">
+        var flag=0;
+        var eventParam={};
+        var worksObjId=7057;
+        var WORKSOBJNAME="临界·寻遗X明日方舟终末地ONLY";
+        var EVENTUSERID=1232335;
+        eventParam.EID=7057;
+        eventParam.enabled=0;
+        eventParam.picUrl="https://imagecdn3.allcpp.cn/upload/2026/6/37ef4956-5a43-4137-abc9-d165ebcc156e.png";//活动封面图
+        eventParam.picId=12197793;//活动封面ID
+        eventParam.tbLink="";//购票地址
+        eventParam.eventCity="";//活动城市
+        eventParam.eventCityId=-1;//活动城市id
+        eventParam.enterAddress="格乐利雅艺术中心";//活动地址 ""
+        eventParam.eventName="临界·寻遗X明日方舟终末地ONLY";//活动名字
+        eventParam.lastDays=11;//距离天数
+        eventParam.sDate="2026-08-15";//开始时间
+        eventParam.eDate="2026-08-15";//结束时间
+        eventParam.eventTag = "明日方舟|终末地";//tag
+        eventParam.desContent ="";//简介
+        eventParam.isOnly=1;//是否独家 0不是 1是
+        eventParam.eventType=3;//活动类型
+        eventParam.appLogoPicId=12197792;//
+        var zEids=[];
+            zEids.push(7812);         
+    </script>
+    <script src="https://cppstatic.allcpp.cn/cn/static/js/allcpp/page.js"></script>
+    <script src="https://cppstatic.allcpp.cn/cn/static/js/allcpp/event/event2.js?v2026080410"></script>
+    <script src="https://cppstatic.allcpp.cn/cn/static/js/allcpp/work/newWorksList.js"></script>
+    <script type="text/javascript">
+    (function () {
+        function dashGuestCountdown() {
+            var box = document.querySelector('#event-leftDay .event-leftDay');
+            if (!box) return;
+            var spans = box.querySelectorAll('span');
+            if (spans.length >= 3) {
+                spans[0].textContent = '-';
+                spans[1].textContent = '-';
+                spans[2].textContent = '-';
+            }
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', dashGuestCountdown);
+        } else {
+            dashGuestCountdown();
+        }
+        setTimeout(dashGuestCountdown, 0);
+        setTimeout(dashGuestCountdown, 400);
+    })();
+    </script>
+
+    <!-- <script src="https://cppstatic.allcpp.cn/cn/static/js/allcpp/work/workList.js"></script> -->
+<!--js jquery-->
+</body>
+
+</html>
