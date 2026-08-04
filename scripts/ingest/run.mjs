@@ -2,6 +2,7 @@
 // 用法：
 //   node scripts/ingest/run.mjs --bilibili "<朋友导出的txt>"   # 半自动：朋友抓包文件
 //   node scripts/ingest/run.mjs --keyword "明日方舟"           # cpp 自动搜索（推荐）：分页拉真实列表接口
+//   node scripts/ingest/run.mjs --keyword "明日方舟" --all-time # 同上 + 抓全量含往期（day=0，往期存同表靠日期区分）
 //   node scripts/ingest/run.mjs --keyword "明日方舟" --detail  # 同上 + 额外抓详情页补全简介/主办方
 //   node scripts/ingest/run.mjs --from-html "<App另存为的搜索页.html>"   # cpp 离线模式A：解析列表HTML
 //   node scripts/ingest/run.mjs --from-list "<id清单.txt|.json>"          # cpp 离线模式B：ID/URL 清单
@@ -45,6 +46,7 @@ const fromList = valOf('--from-list');
 const keyword = valOf('--keyword');
 const doCpp = doAll || !!fromHtml || !!fromList || !!keyword || has('--cpp');
 const dryRun = has('--dry-run');
+const allTime = has('--all-time');
 const reviewStatus = has('--approve') ? 'approved' : (valOf('--review-status') || 'pending');
 const biliPath = valOf('--bilibili') || 'D:/13984/Documents/Tencent Files/1398473754/FileRecv/明日方舟活动信息_20260723_145440.txt';
 const qianPath = valOf('--qianyu') || path.join(__dirname, 'data', 'qianyu.csv');
@@ -87,7 +89,7 @@ async function main() {
   }
   if (doCpp) {
     if (keyword) {
-      const rs = await fetchCpp({ mode: 'search', keyword, reviewStatus, fetchDetails: has('--detail') });
+      const rs = await fetchCpp({ mode: 'search', keyword, reviewStatus, fetchDetails: has('--detail'), allTime });
       records.push(...rs.map((r) => ({ ...r, _src: 'cpp' })));
       console.log(`[cpp] ${rs.length} 条`);
     } else if (fromHtml || fromList) {

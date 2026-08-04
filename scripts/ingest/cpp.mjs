@@ -3,16 +3,19 @@
 // 数据链路（实测，详见 docs/cpp-ingest-redesign.md）：
 //   1) 列表/搜索：真实后端 servlet（无需 App 原生桥、无需鉴权）：
 //        GET https://www.allcpp.cn/allcpp/event/eventMainListV2.do
-//            ?time=8&sort=1&keyword=<词>&pageNo=<页>&pageSize=10
+//            ?time=8&sort=1&keyword=<词>&pageNo=<页>&pageSize=10   （默认：仅未来活动）
+//            ?day=0 &sort=1&keyword=<词>&pageNo=<页>&pageSize=50   （全部时间，含往期，最早见 2019 年）
 //        必须带请求头：Referer/Origin: https://cp.allcpp.cn/ 、errorWrap: json
 //        逆向来源：https://github.com/WindowsNoEditor/CPP_Search （已在 README 致谢）
+//        注：time 是「未来时间窗」过滤器（只返未来）；day=0 才是网页搜索页真实参数，返回全量含往期。
 //        返回 result.list，每条自带 id(EID)/name/type(ONLY|综合同人展)/tag/
-//        provName/cityName/areaName/enterAddress/enterTime/endTime(ms)/logoPicUrl。
+//        provName/cityName/areaName/enterAddress/enterTime/endTime(ms)/logoPicUrl/ended。
 //   2) 详情页（可选补全）：https://www.allcpp.cn/allcpp/event/event.do?event=<id>
 //        服务端渲染、无需登录，eventParam 内联；含 description / 主办方（列表无）。
 //
 // 输入模式（run.mjs 切换）：
 //   --keyword <词>     自动搜索模式（推荐）：分页拉列表，直接用列表字段填表。
+//   --all-time          配合 --keyword：用 day=0 抓全量含往期（默认 time=8 仅未来）。往期存同表，靠日期区分。
 //   --from-html <file> 解析 App 另存为的搜索页（抠 event.do?event=ID + 地点文本）。
 //   --from-list <file> ID/URL 清单（.txt/.json）。
 //   --detail           仅自动搜索模式：额外抓详情页补全 description/organizer（更慢）。
@@ -296,14 +299,18 @@ export async function fetchDetail(eid) {
  * @returns {Promise<Array<object>>} 原始列表项（含 id/name/type/tag/省市区/时间/海报）
  */
 export async function fetchSearchList(keyword, opts = {}) {
-  const { pageSize = 10, maxPages = 50, onPage } = opts;
+  const { pageSize = 10, maxPages = 50, onPage, allTime = false } = opts;
+  // allTime=true → 用 day=0（网页搜索页真实参数，返回全量含往期）；默认 time=8（仅未来）。
+  // 往期量大（如「明日方舟」261 条），allTime 时把分页拉大减少请求数。
+  const timeParam = allTime ? 'day=0' : 'time=8';
+  const ps = allTime ? Math.max(pageSize, 50) : pageSize;
   const all = [];
   let total = Infinity;
   for (let page = 1; page <= maxPages; page++) {
     let lastErr;
     for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
       try {
-        const url = `${LIST_BASE}?time=8&sort=1&keyword=${encodeURIComponent(keyword)}&pageNo=${page}&pageSize=${pageSize}`;
+        const url = `${LIST_BASE}?${timeParam}&sort=1&keyword=${encodeURIComponent(keyword)}&pageNo=${page}&pageSize=${ps}`;
         const res = await fetch(url, { headers: LIST_HEADERS });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const j = await res.json();
@@ -391,12 +398,14 @@ export async function fetchCpp(opts = {}) {
     reviewStatus = 'pending',
     fetchDetails = false,
     excludeKeywords = EXCLUDE_NAME_KEYWORDS,
+    allTime = false,
   } = opts;
 
   let items = [];
   if (mode === 'search' && keyword) {
-    console.log(`[cpp] 自动搜索「${keyword}」：分页拉取列表接口 ...`);
+    console.log(`[cpp] 自动搜索「${keyword}」：${allTime ? '全部时间（含往期 day=0）' : '仅未来（time=8）'}，分页拉取列表接口 ...`);
     items = await fetchSearchList(keyword, {
+      allTime,
       onPage: (p, n, total) => console.log(`  · 第 ${p} 页 ${n} 条（累计 ${total}）`),
     });
   } else if (mode === 'html' && inputFile) {
