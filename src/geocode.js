@@ -112,12 +112,9 @@ async function geocodeBatch(items, env = {}, { maxBatch = 10, retries = 4 } = {}
 
 /**
  * 高德「输入提示」（InputTips）：关键词 -> 候选地点（含经纬度）
- * 前端编辑活动时用的地址联想下拉数据源（替代被模态框裁剪的原生 AutoComplete）。
  * 文档：https://lbs.amap.com/api/webservice/guide/api/inputtips
- * @param {string} keywords 输入关键词
- * @param {string} city 限定城市（城市名或 adcode），为空则不限定
- * @param {object} env 含 AMAP_WEB_KEY / AMAP_WEB_SECRET
- * @returns {Array<{name,district,address,longitude,latitude}>}
+ * 注：前端编辑活动现改用原生 AMap.AutoComplete（面板经 CSS 提到遮罩之上），
+ * 不再需要后端代理；此函数保留备用（如需自建联想可重新接上）。
  */
 async function inputTips(keywords, city, env = {}) {
   const key = env.AMAP_WEB_KEY || env.AMAP_REST_KEY || '';
@@ -147,7 +144,7 @@ async function inputTips(keywords, city, env = {}) {
         .filter(Boolean);
     }
   } catch (e) {
-    // 网络异常：返回空，前端退化为「输入后浏览器端地理编码预览」
+    // 网络异常：返回空
   }
   return [];
 }

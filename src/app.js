@@ -29,7 +29,7 @@
 import { Hono } from 'hono';
 import * as db from './db-d1.js';
 import * as auth from './auth.js';
-import { geocode, geocodeBatch, hasKey, inputTips } from './geocode.js';
+import { geocode, geocodeBatch, hasKey } from './geocode.js';
 
 export function createApp() {
   const app = new Hono();
@@ -54,15 +54,6 @@ export function createApp() {
       db.allCities(c.env.DB),
     ]);
     return c.json({ events, cities: cities.length });
-  });
-
-  // 高德输入提示（地址联想下拉数据源）；前端经此代理，避免把 Web 服务 Key 暴露到浏览器
-  app.get('/api/geocode/inputtips', async (c) => {
-    const keywords = (c.req.query('keywords') || '').trim();
-    const city = (c.req.query('city') || '').trim();
-    if (!keywords) return c.json({ tips: [] });
-    const tips = await inputTips(keywords, city, c.env);
-    return c.json({ tips });
   });
 
   // ---------------- 认证 ----------------

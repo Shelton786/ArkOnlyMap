@@ -144,7 +144,7 @@ function loadAmap() {
     }
     window._AMapSecurityConfig = { securityJsCode: state.config.amapSecurityCode };
     const s = document.createElement('script');
-    s.src = `https://webapi.amap.com/maps?v=2.0&key=${state.config.amapKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geocoder`;
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${state.config.amapKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geocoder,AMap.AutoComplete`;
     s.onload = () => resolve(true);
     s.onerror = () => { resolve(false); };
     document.head.appendChild(s);
@@ -871,102 +871,33 @@ function wireAddressAutolocate() {
   const addrEl = document.getElementById('f-address');
   const cityEl = document.getElementById('f-city');
   if (!addrEl) return;
-
-  // 自定义地址联想下拉：挂在 body 上、position:fixed，彻底逃出 .modal{overflow-y:auto} 的裁剪
-  let panel = null;
-  let items = [];
-  let active = -1;
-  let reqSeq = 0;
-  let lastTipName = '';
-
-  function closePanel() {
-    if (panel) { panel.remove(); panel = null; }
-    items = []; active = -1;
+  if (window.AMap && AMap.AutoComplete) {
+    try {
+      const ac = new AMap.AutoComplete({ input: 'f-address' });
+      ac.on('select', (e) => {
+        if (e && e.poi && e.poi.location) {
+          const loc = e.poi.location;
+          const lng = typeof loc === 'string' ? Number(loc.split(',')[0]) : (loc.lng != null ? loc.lng : loc.getLng());
+          const lat = typeof loc === 'string' ? Number(loc.split(',')[1]) : (loc.lat != null ? loc.lat : loc.getLat());
+          if (!isNaN(lng) && !isNaN(lat)) setPicked(lng, lat);
+        }
+      });
+    } catch (_) { /* AutoComplete 不可用时忽略 */ }
   }
-  function positionPanel() {
-    if (!panel) return;
-    const r = addrEl.getBoundingClientRect();
-    panel.style.left = r.left + 'px';
-    panel.style.top = (r.bottom + 4) + 'px';
-    panel.style.width = Math.max(r.width, 220) + 'px';
-  }
-  function render(list) {
-    closePanel();
-    if (!list.length) return;
-    panel = document.createElement('div');
-    panel.className = 'suggest-panel';
-    panel.setAttribute('role', 'listbox');
-    list.forEach((it) => {
-      const row = document.createElement('div');
-      row.className = 'suggest-item';
-      row.setAttribute('role', 'option');
-      const sub = [it.district, it.address].filter(Boolean).join(' · ');
-      row.innerHTML = `<div class="suggest-name">${esc(it.name)}</div>` + (sub ? `<div class="suggest-sub">${esc(sub)}</div>` : '');
-      row.addEventListener('mousedown', (e) => { e.preventDefault(); choose(it); });
-      panel.appendChild(row);
-    });
-    document.body.appendChild(panel);
-    positionPanel();
-  }
-  function choose(it) {
-    addrEl.value = it.name;
-    lastTipName = it.name;
-    closePanel();
-    if (!Number.isNaN(it.longitude) && !Number.isNaN(it.latitude)) setPicked(it.longitude, it.latitude);
-  }
-  function move(delta) {
-    if (!panel || !items.length) return;
-    active = (active + delta + items.length) % items.length;
-    Array.from(panel.children).forEach((c, i) => c.classList.toggle('active', i === active));
-    const el = panel.children[active];
-    if (el) el.scrollIntoView({ block: 'nearest' });
-  }
-
-  const onInput = () => {
-    lastTipName = '';
-    clearTimeout(t);
-    const q = addrEl.value.trim();
-    const city = cityEl ? cityEl.value.trim() : '';
-    if (!q) { closePanel(); return; }
-    t = setTimeout(async () => {
-      const seq = ++reqSeq;
-      try {
-        const r = await api(`/api/geocode/inputtips?keywords=${encodeURIComponent(q)}&city=${encodeURIComponent(city)}`);
-        if (!r.ok) return;
-        const d = await r.json();
-        if (seq !== reqSeq) return; // 已有更新的请求，丢弃过期结果
-        items = Array.isArray(d.tips) ? d.tips.slice(0, 10) : [];
-        active = -1;
-        render(items);
-      } catch (e) { /* 网络异常：忽略，依赖下方地理编码预览兜底 */ }
-    }, 280);
-  };
-  addrEl.addEventListener('input', onInput);
-  addrEl.addEventListener('keydown', (e) => {
-    if (!panel) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
-    else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); choose(items[active]); }
-    else if (e.key === 'Escape') { closePanel(); }
-  });
-  addrEl.addEventListener('blur', () => setTimeout(closePanel, 150));
-  addrEl.addEventListener('focus', () => { if (items.length) render(items); });
-  window.addEventListener('scroll', () => { if (panel) positionPanel(); }, true);
-  window.addEventListener('resize', closePanel);
-
-  // 兜底：输入后浏览器端地理编码预览（无联想命中时也保证地图上能定位）
-  let gt;
+  // 兜底：输入后浏览器端地理编码预览（无联想命中也能在地图上定位）
+  let t;
   const preview = () => {
-    clearTimeout(gt);
-    gt = setTimeout(async () => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
       const addr = addrEl.value.trim();
       const city = cityEl ? cityEl.value.trim() : '';
-      if (!addr || addr === lastTipName) return; // 已由联想项定位，避免覆盖
+      if (!addr) return;
       const g = await geocodeClient({ address: addr, city });
       if (g) setPicked(g.longitude, g.latitude);
-    }, 900);
+    }, 600);
   };
   addrEl.addEventListener('input', preview);
+  if (cityEl) cityEl.addEventListener('input', preview);
 }
 
 function wireCitySelect() {

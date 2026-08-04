@@ -435,7 +435,9 @@ body {
   border: 1px solid rgba(74,171,234,0.4) !important;
   border-radius: 4px !important;
   box-shadow: 0 8px 26px rgba(0,0,0,0.55) !important;
-  z-index: 100 !important;
+  /* 关键：原生联想面板挂在 document.body，但 .modal-mask 是 z-index:300，
+     若此处低于 300 会被半透明遮罩盖住而"看不见"。提到 400 使其浮在弹窗之上。 */
+  z-index: 400 !important;
   color: #e9f1fb !important;
 }
 [id^="amap_auto_"] *, .amap-sug-result * { color: #e9f1fb !important; }
@@ -448,20 +450,6 @@ body {
   background-color: rgba(74,171,234,0.22) !important;
 }
 .amap-sug--item .sug-subtitle, [id^="amap_auto_"] .sug-subtitle { color: #9fb2cf !important; }
-
-/* 自定义地址联想下拉（替代被模态框裁剪的原生 AutoComplete）
-   挂在 body 上、position:fixed，z-index 高于模态框（.modal-mask=300），确保不被 overflow 裁掉 */
-.suggest-panel {
-  position: fixed; z-index: 400;
-  background: #122042; border: 1px solid rgba(74,171,234,0.4);
-  border-radius: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);
-  max-height: 280px; overflow-y: auto; padding: 4px;
-  color: #e9f1fb;
-}
-.suggest-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; }
-.suggest-item:hover, .suggest-item.active { background: rgba(74,171,234,0.22); }
-.suggest-item .suggest-name { font-size: 13px; color: #e9f1fb; }
-.suggest-item .suggest-sub { font-size: 11px; color: #9fb2cf; margin-top: 2px; }
 
 /* ---------------- 角色徽章 ---------------- */
 .role-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
