@@ -144,6 +144,35 @@ node scripts/import_excel.js data/sample_conventions.csv
 
 ---
 
+## 🔄 从 CPP（无差别同人站）同步集会
+
+> CPP = [无差别同人站](https://www.allcpp.cn/)（同人 / 漫展聚合平台）。本项目内置适配器，可把上面的明日方舟相关集会抓取进数据库地图。
+> 列表接口（`eventMainListV2.do`）由社区项目 [CPP_Search](https://github.com/WindowsNoEditor/CPP_Search) 逆向提供，特此致谢（详见文末「鸣谢」）。
+
+**三种抓取模式：**
+
+```bash
+# ① 自动搜索（推荐）：按关键词分页拉取「无差别同人站」列表接口，自动映射省市区/日期/海报
+node scripts/ingest/run.mjs --keyword "明日方舟" --dry-run     # 先核对映射
+node scripts/ingest/run.mjs --keyword "明日方舟"               # 确认无误后写入线上 D1
+
+# ② 从 App「另存为」的搜索结果网页抓取（离线备用，列表接口不稳时）
+node scripts/ingest/run.mjs --from-html "<path>/搜索结果.html" --dry-run
+
+# ③ 手动给活动 ID / 详情页 URL 清单（txt 每行一个，或 json 数组）
+node scripts/ingest/run.mjs --from-list "ids.txt" --dry-run
+```
+
+**关键约定：**
+
+- **综合展自动排除**：列表接口的 `type` 字段标记「综合同人展」（如 `Together Workshop 35SP`、`COMICSEED`）会被自动跳过、不入库（仅收录 ONLY / 专场）。手动清单模式另有「标题含『综合』即排除」的兜底。
+- **省市区直接入库**：列表接口返回 `provName/cityName/areaName`，经 `scripts/ingest/geo.mjs` 解析为 GB/T 2260 行政编码（直辖市区县消歧已修复）。
+- **幂等更新**：写入走 `ON CONFLICT(source, source_id)` —— `source='cpp'`、`source_id`=活动 ID，重复跑只更新不新增。
+- **默认待审核**：CPP 首跑 `review_status='pending'`（先在地图上标「未确认」让你核对映射）；加 `--approve` 直接放行 `approved`。
+- 海报相对路径自动拼 `https://imagecdn3.allcpp.cn/upload` 前缀；时间戳（毫秒）转为 `YYYY-MM-DD` 起止日期。
+
+---
+
 ## 👤 账户与权限
 
 > 账户系统（P1 阶段 A）已实现：站内唯一身份号 **AMID**、四级角色、**审核流**（舟友提交→管理员通过）、主办认领、鹰角通行证手动 UID 绑定。
@@ -353,6 +382,14 @@ Node 自托管形态（`server/`）则用 `.env` 文件：`PORT`、`SESSION_SECR
 - 管理员审核流（标记 `verified`）
 - 真正的腾讯文档实时同步（开放 API + 定时任务）
 - 移动端 PWA / 小程序
+
+---
+
+## 🙏 鸣谢
+
+- **[CPP_Search](https://github.com/WindowsNoEditor/CPP_Search)** —— 逆向了「无差别同人站（allcpp.cn）」的真实活动列表接口（`eventMainListV2.do`），让本项目的 CPP 自动同步得以闭环（无需 App 原生桥、无鉴权）。本项目已据此实现 `--keyword` 自动抓取模式，并反哺了若干健壮性改进（详见[该仓库](https://github.com/WindowsNoEditor/CPP_Search)）。
+- 地图底图与 JS API 由[高德开放平台](https://lbs.amap.com/)提供。
+- 行政编码参照表基于社区数据集 `province-city-china`（GB/T 2260）。
 
 ---
 

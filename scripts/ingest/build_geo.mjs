@@ -67,7 +67,8 @@ for (const p of provinces) for (const k of keys(p.name)) provinceIndex[k] = p.co
 for (const c of cities) for (const k of keys(c.name)) cityIndex[k] = c.code;
 for (const a of areas) {
   for (const k of keys(a.name)) areaIndex[k] = a.code; // 重名时后者覆盖，仅兜底
-  areaByCity[a.province + a.city + '|' + a.name] = a.code;
+  // 同时存「带后缀」与「剥后缀」两种键，避免与 resolveCode 的剥后缀查询对不上
+  for (const k of keys(a.name)) areaByCity[a.province + a.city + '|' + k] = a.code;
 }
 // 兼容「上海市」这类带市后缀的直辖市输入
 for (const [pc, short] of Object.entries(MUNICIPAL)) cityIndex[short + '市'] = pc + '01';
