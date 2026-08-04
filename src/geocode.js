@@ -110,8 +110,50 @@ async function geocodeBatch(items, env = {}, { maxBatch = 10, retries = 4 } = {}
   return out;
 }
 
+/**
+ * 高德「输入提示」（InputTips）：关键词 -> 候选地点（含经纬度）
+ * 前端编辑活动时用的地址联想下拉数据源（替代被模态框裁剪的原生 AutoComplete）。
+ * 文档：https://lbs.amap.com/api/webservice/guide/api/inputtips
+ * @param {string} keywords 输入关键词
+ * @param {string} city 限定城市（城市名或 adcode），为空则不限定
+ * @param {object} env 含 AMAP_WEB_KEY / AMAP_WEB_SECRET
+ * @returns {Array<{name,district,address,longitude,latitude}>}
+ */
+async function inputTips(keywords, city, env = {}) {
+  const key = env.AMAP_WEB_KEY || env.AMAP_REST_KEY || '';
+  const secret = env.AMAP_WEB_SECRET || '';
+  if (!key || !keywords || !keywords.trim()) return [];
+  const params = buildParams(
+    { key, keywords: keywords.trim(), city: city || '', citylimit: city ? 'true' : 'false', output: 'JSON' },
+    secret
+  );
+  try {
+    const resp = await fetch(`https://restapi.amap.com/v3/assistant/inputtips?${params.toString()}`);
+    const data = await resp.json();
+    if (data.status === '1' && Array.isArray(data.tips)) {
+      return data.tips
+        .filter((t) => t && t.location && t.location !== '[]' && t.location !== '')
+        .map((t) => {
+          const [lng, lat] = String(t.location).split(',').map(Number);
+          if (Number.isNaN(lng) || Number.isNaN(lat)) return null;
+          return {
+            name: t.name || '',
+            district: t.district || '',
+            address: t.address || '',
+            longitude: lng,
+            latitude: lat,
+          };
+        })
+        .filter(Boolean);
+    }
+  } catch (e) {
+    // 网络异常：返回空，前端退化为「输入后浏览器端地理编码预览」
+  }
+  return [];
+}
+
 function hasKey(env = {}) {
   return Boolean(env.AMAP_WEB_KEY || env.AMAP_REST_KEY);
 }
 
-export { geocode, geocodeBatch, hasKey };
+export { geocode, geocodeBatch, hasKey, inputTips };
