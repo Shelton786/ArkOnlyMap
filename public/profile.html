@@ -217,6 +217,8 @@
               <div class="pf-meta">
                 <span>AMID <b>${esc(u.amid)}</b></span>
                 <span>加入于 <b>${esc(joined)}</b></span>
+                ${u.hypergryph_uid ? `<span>鹰角通行证 <b>${esc(u.hypergryph_uid)}</b></span>` : ''}
+                ${u.email ? `<span>邮箱 <b>${esc(u.email)}</b></span>` : ''}
               </div>
               ${tagHtml}
             </div>
