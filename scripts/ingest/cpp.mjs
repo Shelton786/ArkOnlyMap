@@ -56,14 +56,23 @@ function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 // 工具
 // ===========================================================================
 
-/** 毫秒时间戳 → YYYY-MM-DD（列表 enterTime/endTime 为 ms）。 */
-function msToDate(ms) {
+/**
+ * 毫秒时间戳 → YYYY-MM-DD（列表 enterTime/endTime 为 ms）。
+ *
+ * 关键修复（2026-08-04 发现）：cpp 的 enterTime/endTime 是活动「当地(北京时间)」的时间戳，
+ * 值一律落在当地 00:00。若用 toISOString()(UTC) 取日期，当地 00:00 对应 UTC 前一天 16:00，
+ * 会把日期回退到前一天 —— 导致入库日期系统性早一天（如 6/6 存成 6/5）。
+ * 这里改用 Asia/Shanghai(UTC+8) 取日历日期，与 cpp 界面显示的举办日一致。
+ */
+export function msToDate(ms) {
   if (ms === undefined || ms === null || ms === '') return null;
   const n = Number(ms);
   if (!Number.isFinite(n) || n <= 0) return null;
   const d = new Date(n);
   if (isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
 }
 
 /** 拆分标签（| 、，;； 等分隔）。 */
@@ -479,5 +488,5 @@ export async function fetchCpp(opts = {}) {
 export default {
   fetchCpp, fetchSearchList, toRawRecordFromList, enrichFromDetail,
   parseListFromHtml, parseListFromText, parseListFile, parseEventParam, parseOrganizer,
-  toRawRecord, isExcluded, isExcludedByType,
+  toRawRecord, isExcluded, isExcludedByType, msToDate,
 };
