@@ -325,20 +325,29 @@ function addMarker(ev) {
   state.markers.set(ev.id, marker);
 }
 // 浏览器端地理编码（使用 JS API Key，类型匹配）
+// ⚠️ 高德 getLocation 回调在某些情况下（安全密钥不匹配、限流、网络）可能永远不返回，
+// 会导致「正在定位活动坐标…」遮罩永久转圈。故加超时保护：到点一律当作解析失败。
 function geocodeClient(ev) {
   return new Promise((resolve) => {
+    if (!window.AMap || !AMap.Geocoder) { resolve(null); return; }
     if (!state.geocoder) state.geocoder = new AMap.Geocoder({ city: '全国' });
     const addr = [ev.address, ev.city].filter(Boolean).join(' ');
-    state.geocoder.getLocation(addr, (status, result) => {
-      if (status === 'complete' && result.geocodes && result.geocodes.length) {
-        const loc = result.geocodes[0].location;
-        let lng, lat;
-        if (typeof loc === 'string') [lng, lat] = loc.split(',').map(Number);
-        else { lng = loc.lng != null ? loc.lng : loc.getLng(); lat = loc.lat != null ? loc.lat : loc.getLat(); }
-        if (!isNaN(lng) && !isNaN(lat)) { resolve({ longitude: lng, latitude: lat }); return; }
-      }
-      resolve(null);
-    });
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    const timer = setTimeout(() => done(null), 6000); // 兜底超时：绝不永久挂起
+    try {
+      state.geocoder.getLocation(addr, (status, result) => {
+        clearTimeout(timer);
+        if (status === 'complete' && result.geocodes && result.geocodes.length) {
+          const loc = result.geocodes[0].location;
+          let lng, lat;
+          if (typeof loc === 'string') [lng, lat] = loc.split(',').map(Number);
+          else { lng = loc.lng != null ? loc.lng : loc.getLng(); lat = loc.lat != null ? loc.lat : loc.getLat(); }
+          if (!isNaN(lng) && !isNaN(lat)) { done({ longitude: lng, latitude: lat }); return; }
+        }
+        done(null);
+      });
+    } catch (e) { clearTimeout(timer); done(null); }
   });
 }
 async function saveCoords(ev) {
@@ -375,6 +384,9 @@ function renderMarkers(list) {
 }
 async function geocodeMissingOnLoad(items) {
   if (state._geoRunning) return;
+  // 地理编码未启用（服务端无 Key）或高德不可用：直接跳过，不显示「定位中」遮罩
+  if (!state.config.geocodeEnabled) return;
+  if (!window.AMap || !AMap.Geocoder) return;
   const list = (items && items.length !== undefined) ? items : state.events;
   const missing = list.filter(
     (e) => (e.longitude == null || e.latitude == null) && e.address && !e._geoStarted
