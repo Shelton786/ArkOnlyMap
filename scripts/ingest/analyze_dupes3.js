@@ -30,6 +30,9 @@ function normCore(title) {
   s = s.replace(/[^\u4e00-\u9fff0-9a-z]/g, '');
   for (const w of GENERIC) s = s.split(w).join('');
   for (const gn of [...geoNames].sort((a, b) => b.length - a.length)) if (gn.length >= 2) s = s.split(gn).join('');
+  // 版本号归一化：3.0 / 03 / 3 统一成 e3，避免"写法不同但同届"漏判，也让"2.0 vs 无版本"正确判为不同届
+  s = s.replace(/\d+\.\d+/g, m => 'e' + parseFloat(m));
+  s = s.replace(/\d+/g, m => 'e' + parseInt(m, 10));
   return s;
 }
 function normCity(c) {
@@ -55,6 +58,7 @@ function sim(a, b) {
 
 const N = rows.length;
 const sameCityEdges = [];
+const sameCityDateConflict = [];
 const crossCityPairs = [];
 for (let i = 0; i < N; i++) {
   for (let j = i + 1; j < N; j++) {
@@ -67,6 +71,10 @@ for (let i = 0; i < N; i++) {
     if (sameCity && dd <= 3) {
       const needExact = ga && gb;
       if ((needExact && a._core === b._core) || (!needExact && sc >= 0.85)) sameCityEdges.push([i, j, +sc.toFixed(3), dd]);
+    } else if (sameCity && sc >= 0.88) {
+      // 同城市、核心高度相似但日期差>3天：多半是"同一场但日期被录错"，单列待人工复核
+      // （不能自动并——同年不同届次如 广州茶话会2019/2023 是真实不同场次）
+      sameCityDateConflict.push([i, j, +sc.toFixed(3), dd]);
     } else if (sc >= 0.92 && dd <= 2) {
       crossCityPairs.push([i, j, +sc.toFixed(3), dd]);
     }
@@ -94,5 +102,10 @@ const outCross = crossCityPairs.map(([i, j, sc, dd]) => ({ a: { id: rows[i].id, 
 for (const [i, j, sc, dd] of crossCityPairs) {
   console.log(`  [sim=${sc} d=${dd}] ${show(rows[i])}  <->  ${show(rows[j])}`);
 }
-fs.writeFileSync('scripts/ingest/data/dup_candidates3.json', JSON.stringify({ sameCityClusters: outSame, crossCityPairs: outCross }, null, 2), 'utf8');
+console.log(`\n同城市·日期冲突(疑似同一场但日期录错)对: ${sameCityDateConflict.length}`);
+const outConflict = sameCityDateConflict.map(([i, j, sc, dd]) => ({ a: { id: rows[i].id, title: rows[i].title, city: rows[i].city, start: rows[i].start_date, source: rows[i].source }, b: { id: rows[j].id, title: rows[j].title, city: rows[j].city, start: rows[j].start_date, source: rows[j].source }, sim: sc, dayDiff: dd }));
+for (const [i, j, sc, dd] of sameCityDateConflict) {
+  console.log(`  [sim=${sc} d=${dd}] ${show(rows[i])}  <->  ${show(rows[j])}`);
+}
+fs.writeFileSync('scripts/ingest/data/dup_candidates3.json', JSON.stringify({ sameCityClusters: outSame, sameCityDateConflict: outConflict, crossCityPairs: outCross }, null, 2), 'utf8');
 console.log('\n已写出 scripts/ingest/data/dup_candidates3.json');
