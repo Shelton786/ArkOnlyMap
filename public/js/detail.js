@@ -13,7 +13,7 @@
 function openDetail(ev) {
   state.selectedId = ev.id;
   applyFilters(); // 同步刷新列表激活态与标记层级
-  const p = ev.poster_url ? `<img class="detail-poster" src="${esc(safeUrl(ev.poster_url))}" onerror="this.style.display='none'"/>` : '';
+  const p = ev.poster_url ? `<img class="detail-poster" src="${esc(safeUrl(ev.poster_url))}" loading="lazy" onerror="this.style.display='none'"/>` : '';
   const link = safeUrl(ev.source_url) ? `<a class="detail-link" href="${esc(ev.source_url)}" target="_blank" rel="noopener">查看官方信息 ↗</a>` : '';
   const tags = Array.isArray(ev.tags) ? ev.tags : [];
   const u = state.user;

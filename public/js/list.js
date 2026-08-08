@@ -66,31 +66,66 @@ function sortEvents(list) {
     return a.status === 'past' ? vb - va : va - vb;
   });
 }
+// 列表分批渲染：首批 LIST_PAGE_SIZE 条，滚动到底由哨兵自动追加下一批。
+// 避免数百上千条活动一次性建 DOM 造成卡顿；行为与全量渲染一致（筛选/高亮仍整体重算）。
+const LIST_PAGE_SIZE = 50;
+let _listObserver = null;
+let _listRendered = 0;
+
+function makeEventCard(ev) {
+  const art = document.createElement('article');
+  const pendCls = ev.review_status === 'pending' ? ' is-pending' : '';
+  art.className = 'event-card' + (ev.id === state.selectedId ? ' is-active' : '') + pendCls;
+  art.tabIndex = 0;
+  art.innerHTML = `
+    <div class="ec-top">
+      <h3 class="ec-title">${esc(ev.title)}</h3>
+      <span class="badge badge--${ev.status}">${STATUS_TEXT[ev.status] || '待定'}</span>
+      ${ev.review_status === 'pending' ? `<span class="badge badge--pending">${ev.submission_type === 'supplement' ? '未确认·补充' : '未确认'}</span>` : ''}
+    </div>
+    <p class="ec-meta">
+      📅 ${esc(fmtDate(ev))}<br/>
+      📍 <span class="ec-city">${esc(ev.city || '城市待定')}</span>${isChina(ev.country) ? '' : (ev.country ? ' · ' + esc(ev.country) : '')}${ev.venue ? ' · ' + esc(ev.venue) : ''}
+    </p>`;
+  const go = () => { openDetail(ev); flyTo(ev); };
+  art.addEventListener('click', go);
+  art.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+  return art;
+}
+
+function appendListBatch(ul, list, sentinel) {
+  const next = list.slice(_listRendered, _listRendered + LIST_PAGE_SIZE);
+  _listRendered += next.length;
+  for (const ev of next) {
+    const art = makeEventCard(ev);
+    if (sentinel) ul.insertBefore(art, sentinel); else ul.appendChild(art);
+  }
+}
+
 function renderList(list) {
   const ul = document.getElementById('event-list');
   const empty = document.getElementById('list-empty');
   ul.innerHTML = '';
+  _listRendered = 0;
+  if (_listObserver) { _listObserver.disconnect(); _listObserver = null; }
   if (!list.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-  for (const ev of list) {
-    const art = document.createElement('article');
-    const pendCls = ev.review_status === 'pending' ? ' is-pending' : '';
-    art.className = 'event-card' + (ev.id === state.selectedId ? ' is-active' : '') + pendCls;
-    art.tabIndex = 0;
-    art.innerHTML = `
-      <div class="ec-top">
-        <h3 class="ec-title">${esc(ev.title)}</h3>
-        <span class="badge badge--${ev.status}">${STATUS_TEXT[ev.status] || '待定'}</span>
-        ${ev.review_status === 'pending' ? `<span class="badge badge--pending">${ev.submission_type === 'supplement' ? '未确认·补充' : '未确认'}</span>` : ''}
-      </div>
-      <p class="ec-meta">
-        📅 ${esc(fmtDate(ev))}<br/>
-        📍 <span class="ec-city">${esc(ev.city || '城市待定')}</span>${isChina(ev.country) ? '' : (ev.country ? ' · ' + esc(ev.country) : '')}${ev.venue ? ' · ' + esc(ev.venue) : ''}
-      </p>`;
-    const go = () => { openDetail(ev); flyTo(ev); };
-    art.addEventListener('click', go);
-    art.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-    ul.appendChild(art);
+  appendListBatch(ul, list, null);
+  // 若当前选中项在首批之后（如从详情/地图标记联动），一次性补足到其所在批次，保证高亮卡片存在
+  if (state.selectedId != null) {
+    const idx = list.findIndex((e) => e.id === state.selectedId);
+    while (idx >= _listRendered && _listRendered < list.length) appendListBatch(ul, list, null);
+  }
+  if (_listRendered < list.length) {
+    const sentinel = document.createElement('div');
+    sentinel.className = 'list-sentinel';
+    ul.appendChild(sentinel);
+    _listObserver = new IntersectionObserver((entries) => {
+      if (!entries[0].isIntersecting) return;
+      appendListBatch(ul, list, sentinel);
+      if (_listRendered >= list.length) { _listObserver.disconnect(); sentinel.remove(); }
+    });
+    _listObserver.observe(sentinel);
   }
 }
 async function renderCities() {
