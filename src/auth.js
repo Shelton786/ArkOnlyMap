@@ -228,7 +228,6 @@ export {
   clearSessionCookie,
   setCsrfCookie,
   clearCsrfCookie,
-  csrfProtect,
   requireAuth,
   requireAdmin,
   requireAdminOrAbove,
