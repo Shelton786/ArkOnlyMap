@@ -72,7 +72,7 @@ function markerHtml(ev) {
     </div>`;
 }
 const MARKER_Z = { upcoming: 300, ongoing: 300, past: 100, unknown: 100 };
-// 构建单个标记（不上图，统一交给聚合器 / renderMarkers 管理）
+// 构建单个标记（仅用于聚合插件不可用时的降级直挂）
 function buildMarker(ev) {
   const marker = new AMap.Marker({
     position: [ev.longitude, ev.latitude],
@@ -92,12 +92,19 @@ function renderClusterMarker(ctx) {
   ctx.marker.setAnchor('center');
   ctx.marker.setzIndex(350);
 }
-// 增量添加（地理编码逐个解析完成时调用）：有聚合器则交给聚合器
-function addMarker(ev) {
-  if (ev.longitude == null || ev.latitude == null) return;
-  const m = buildMarker(ev);
-  if (state.cluster) state.cluster.addMarkers([m]);
-  else if (state.map) m.setMap(state.map);
+// 非聚合单点样式：复用原活动标记外观与点击行为。
+// ctx.data[0] 是构造时传入的数据点（含我们塞进去的 id），由此找回活动对象。
+function renderSingleMarker(ctx) {
+  const id = ctx.data && ctx.data[0] && ctx.data[0].id;
+  const ev = state.events.find((e) => e.id === id);
+  if (!ev) return;
+  ctx.marker.setContent(markerHtml(ev));
+  ctx.marker.setAnchor('center');
+  ctx.marker.setzIndex(ev.id === state.selectedId ? 400 : (MARKER_Z[ev.status] || 100));
+  ctx.marker.on('click', () => { openDetail(ev); });
+}
+function evToPoint(ev) {
+  return { lnglat: [ev.longitude, ev.latitude], id: ev.id };
 }
 // 浏览器端地理编码（使用 JS API Key，类型匹配）
 // ⚠️ 高德 getLocation 回调在某些情况下（安全密钥不匹配、限流、网络）可能永远不返回，
@@ -139,7 +146,7 @@ async function geocodeAll() {
   let done = 0;
   for (const ev of missing) {
     const g = await geocodeClient(ev);
-    if (g) { ev.longitude = g.longitude; ev.latitude = g.latitude; ev._geoDone = true; addMarker(ev); await saveCoords(ev); done++; }
+    if (g) { ev.longitude = g.longitude; ev.latitude = g.latitude; ev._geoDone = true; await saveCoords(ev); done++; }
     else ev._geoDone = true;
   }
   renderMarkers(visibleEvents());
@@ -152,19 +159,18 @@ function renderMarkers(list) {
   if (state.cluster) { state.cluster.setMap(null); state.cluster = null; }
   for (const m of state.markers.values()) m.setMap(null);
   state.markers.clear();
-  const markers = [];
-  for (const ev of items) {
-    if (ev.longitude != null && ev.latitude != null) markers.push(buildMarker(ev));
-  }
-  // 点聚合：同城密集活动在小缩放级别合并为数字圆点，放大自动展开；
+  const located = items.filter((ev) => ev.longitude != null && ev.latitude != null);
+  // 点聚合（JS API 2.0 的 MarkerCluster 接收 {lnglat,...} 数据点而非 Marker 实例）：
+  // 同城密集活动在小缩放级别合并为数字圆点，放大自动展开；
   // 插件不可用时（如加载失败）退化为逐个点直挂地图
   if (window.AMap && AMap.MarkerCluster) {
-    state.cluster = new AMap.MarkerCluster(state.map, markers, {
+    state.cluster = new AMap.MarkerCluster(state.map, located.map(evToPoint), {
       gridSize: 60,
       renderClusterMarker,
+      renderMarker: renderSingleMarker,
     });
   } else {
-    for (const m of markers) m.setMap(state.map);
+    for (const ev of located) buildMarker(ev).setMap(state.map);
   }
   // 缺坐标的活动：在浏览器端顺序地理编码（带间隔，避免限流），登录用户自动回写
   geocodeMissingOnLoad(items);
@@ -190,7 +196,6 @@ async function geocodeMissingOnLoad(items) {
       const g = await geocodeClient(ev);
       if (g) {
         ev.longitude = g.longitude; ev.latitude = g.latitude; ev._geoDone = true;
-        addMarker(ev);
         if (state.user) await saveCoords(ev);
         resolved++;
       }
@@ -210,11 +215,18 @@ function flyTo(ev) {
   state.map.setZoomAndCenter(14, [ev.longitude, ev.latitude]);
 }
 // 城市筛选切换后，自动框选到该城市的标记；取消城市则回到默认长三角视图
+// 聚合模式下标记由插件托管，这里直接由活动坐标计算视野范围
 function frameToCity() {
   if (!state.map) return;
-  const ms = [...state.markers.values()];
-  if (state.filters.city && ms.length) {
-    state.map.setFitView(ms, false, [50, 50, 50, 50]);
+  const list = visibleEvents().filter((e) => e.longitude != null && e.latitude != null);
+  if (state.filters.city && list.length) {
+    if (list.length === 1) { flyTo(list[0]); return; }
+    let swLng = Infinity, swLat = Infinity, neLng = -Infinity, neLat = -Infinity;
+    for (const e of list) {
+      swLng = Math.min(swLng, e.longitude); swLat = Math.min(swLat, e.latitude);
+      neLng = Math.max(neLng, e.longitude); neLat = Math.max(neLat, e.latitude);
+    }
+    state.map.setBounds(new AMap.Bounds([swLng, swLat], [neLng, neLat]), false, [50, 50, 50, 50]);
   } else if (!state.filters.city) {
     state.map.setZoomAndCenter(DEFAULT_ZOOM, DEFAULT_CENTER);
   }
