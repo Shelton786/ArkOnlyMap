@@ -106,6 +106,42 @@ function clearSessionCookie(c) {
   c.header('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${secure}`);
 }
 
+// ---------------- CSRF 防护（双提交 Cookie） ----------------
+// 登录时下发非 HttpOnly 的 ark_csrf Cookie；前端写操作需在 X-CSRF-Token 头回传。
+// 跨站表单/请求无法读取该 Cookie 值，也就无法伪造正确的头。
+export const CSRF_COOKIE = 'ark_csrf';
+
+function setCsrfCookie(c) {
+  const token = randomBytes(32).toString('base64url');
+  const secure = isHttps(c) ? '; Secure' : '';
+  c.header('Set-Cookie', `${CSRF_COOKIE}=${token}; Path=/; Max-Age=${Math.floor(TOKEN_TTL / 1000)}; SameSite=Lax${secure}`, { append: true });
+  return token;
+}
+
+function clearCsrfCookie(c) {
+  const secure = isHttps(c) ? '; Secure' : '';
+  c.header('Set-Cookie', `${CSRF_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`, { append: true });
+}
+
+// Hono 中间件：写操作（非 GET/HEAD/OPTIONS）校验头与 Cookie 一致。
+// 登录 / 注册豁免（此时还没有会话，登录 CSRF 风险可忽略）。
+const CSRF_EXEMPT_PATHS = new Set(['/api/auth/login', '/api/auth/register']);
+export async function csrfProtect(c, next) {
+  const method = c.req.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+  const path = new URL(c.req.url).pathname;
+  if (CSRF_EXEMPT_PATHS.has(path)) return next();
+  const cookie = c.req.header('Cookie') || '';
+  const m = cookie.match(new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]+)`));
+  const header = c.req.header('X-CSRF-Token') || '';
+  const a = m ? Buffer.from(m[1]) : null;
+  const b = Buffer.from(header);
+  if (!a || !b.length || a.length !== b.length || !timingSafeEqual(a, b)) {
+    return c.json({ error: '请求校验失败，请刷新页面后重试' }, 403);
+  }
+  return next();
+}
+
 // Hono 中间件：把当前用户挂到 c.set('user')（无则 null）
 export async function attachUser(c, next) {
   const cookie = c.req.header('Cookie');
@@ -190,6 +226,9 @@ export {
   unsign,
   setSessionCookie,
   clearSessionCookie,
+  setCsrfCookie,
+  clearCsrfCookie,
+  csrfProtect,
   requireAuth,
   requireAdmin,
   requireAdminOrAbove,

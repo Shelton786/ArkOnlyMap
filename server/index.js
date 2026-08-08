@@ -32,6 +32,7 @@ init();
 const app = express();
 app.use(express.json({ limit: '4mb' }));
 app.use(auth.attachUser);
+app.use('/api', auth.csrfProtect);
 
 const APP_TITLE = process.env.APP_TITLE || '舟友同好集会地图';
 const AMAP_KEY = process.env.AMAP_KEY || '';
@@ -58,6 +59,7 @@ app.post('/api/auth/register', (req, res) => {
   const user = createUser(username, auth.hashPassword(password), role);
   const token = auth.issueToken(user);
   auth.setSessionCookie(res, token);
+  auth.setCsrfCookie(res);
   res.json({ user, role: user.role });
 });
 
@@ -70,15 +72,19 @@ app.post('/api/auth/login', (req, res) => {
   }
   const token = auth.issueToken(user);
   auth.setSessionCookie(res, token);
+  auth.setCsrfCookie(res);
   res.json({ user: { id: user.id, username: user.username, role: user.role }, role: user.role });
 });
 
 app.post('/api/auth/logout', (req, res) => {
   auth.clearSessionCookie(res);
+  auth.clearCsrfCookie(res);
   res.json({ ok: true });
 });
 
 app.get('/api/auth/me', (req, res) => {
+  // 已登录但缺 CSRF Cookie 时补发一枚
+  if (req.user && !auth.parseCookies(req)[auth.CSRF_COOKIE]) auth.setCsrfCookie(res);
   res.json({ user: req.user || null });
 });
 

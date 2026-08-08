@@ -34,6 +34,7 @@ import { geocode, geocodeBatch, hasKey } from './geocode.js';
 export function createApp() {
   const app = new Hono();
   app.use('*', auth.attachUser);
+  app.use('/api/*', auth.csrfProtect);
 
   const APP_TITLE = '舟友同好集会地图';
 
@@ -108,6 +109,7 @@ export function createApp() {
     await db.createIdentity(c.env.DB, user.id, 'password', username, username, 1);
     const token = auth.issueToken(user, secret(c));
     auth.setSessionCookie(c, token);
+    auth.setCsrfCookie(c);
     const identities = await db.getIdentities(c.env.DB, user.id);
     return c.json({ user: shapeUser(user, identities), role: user.role });
   });
@@ -126,18 +128,22 @@ export function createApp() {
     }
     const token = auth.issueToken(user, secret(c));
     auth.setSessionCookie(c, token);
+    auth.setCsrfCookie(c);
     const identities = await db.getIdentities(c.env.DB, user.id);
     return c.json({ user: shapeUser(user, identities), role: user.role });
   });
 
   app.post('/api/auth/logout', (c) => {
     auth.clearSessionCookie(c);
+    auth.clearCsrfCookie(c);
     return c.json({ ok: true });
   });
 
   app.get('/api/auth/me', async (c) => {
     const u = c.get('user');
     if (!u) return c.json({ user: null });
+    // 已登录但缺 CSRF Cookie（如本次上线前的旧会话），补发一枚
+    if (!(c.req.header('Cookie') || '').includes(`${auth.CSRF_COOKIE}=`)) auth.setCsrfCookie(c);
     const identities = await db.getIdentities(c.env.DB, u.id);
     return c.json({ user: shapeUser(u, identities) });
   });

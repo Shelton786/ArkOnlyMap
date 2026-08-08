@@ -78,6 +78,41 @@ function clearSessionCookie(res) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
 }
 
+// ---------------- CSRF 防护（双提交 Cookie） ----------------
+const CSRF_COOKIE = 'ark_csrf';
+
+function appendSetCookie(res, cookieStr) {
+  const prev = res.getHeader('Set-Cookie');
+  const arr = prev ? (Array.isArray(prev) ? prev : [prev]) : [];
+  arr.push(cookieStr);
+  res.setHeader('Set-Cookie', arr);
+}
+
+function setCsrfCookie(res) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  appendSetCookie(res, `${CSRF_COOKIE}=${token}; Path=/; Max-Age=${Math.floor(TOKEN_TTL / 1000)}; SameSite=Lax`);
+  return token;
+}
+
+function clearCsrfCookie(res) {
+  appendSetCookie(res, `${CSRF_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`);
+}
+
+// Express 中间件：写操作校验 X-CSRF-Token 头与 Cookie 一致；登录/注册豁免
+const CSRF_EXEMPT_PATHS = new Set(['/api/auth/login', '/api/auth/register']);
+function csrfProtect(req, res, next) {
+  const method = req.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+  if (CSRF_EXEMPT_PATHS.has(req.path)) return next();
+  const cookies = parseCookies(req);
+  const a = cookies[CSRF_COOKIE] ? Buffer.from(cookies[CSRF_COOKIE]) : null;
+  const b = Buffer.from(req.headers['x-csrf-token'] || '');
+  if (!a || !b.length || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(403).json({ error: '请求校验失败，请刷新页面后重试' });
+  }
+  next();
+}
+
 // Express 中间件：把当前用户挂到 req.user（无则 null）
 function attachUser(req, res, next) {
   const cookies = parseCookies(req);
@@ -109,8 +144,12 @@ module.exports = {
   parseCookies,
   setSessionCookie,
   clearSessionCookie,
+  setCsrfCookie,
+  clearCsrfCookie,
+  csrfProtect,
   attachUser,
   requireAuth,
   requireAdmin,
   COOKIE_NAME,
+  CSRF_COOKIE,
 };
