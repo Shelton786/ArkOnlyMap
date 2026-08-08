@@ -26,7 +26,7 @@ function loadAmap() {
     }
     window._AMapSecurityConfig = { securityJsCode: state.config.amapSecurityCode };
     const s = document.createElement('script');
-    s.src = `https://webapi.amap.com/maps?v=2.0&key=${state.config.amapKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geocoder,AMap.AutoComplete`;
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${state.config.amapKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geocoder,AMap.AutoComplete,AMap.MarkerCluster`;
     s.onload = () => resolve(true);
     s.onerror = () => { resolve(false); };
     document.head.appendChild(s);
@@ -72,16 +72,32 @@ function markerHtml(ev) {
     </div>`;
 }
 const MARKER_Z = { upcoming: 300, ongoing: 300, past: 100, unknown: 100 };
-function addMarker(ev) {
-  if (ev.longitude == null || ev.latitude == null) return;
+// 构建单个标记（不上图，统一交给聚合器 / renderMarkers 管理）
+function buildMarker(ev) {
   const marker = new AMap.Marker({
     position: [ev.longitude, ev.latitude],
     content: markerHtml(ev), anchor: 'center',
     zIndex: ev.id === state.selectedId ? 400 : (MARKER_Z[ev.status] || 100),
   });
   marker.on('click', () => { openDetail(ev); });
-  marker.setMap(state.map);
   state.markers.set(ev.id, marker);
+  return marker;
+}
+// 聚合点样式：主题色圆点 + 数量
+function renderClusterMarker(ctx) {
+  const div = document.createElement('div');
+  div.className = 'ak-cluster';
+  div.innerHTML = `<span>${ctx.count}</span>`;
+  ctx.marker.setContent(div);
+  ctx.marker.setAnchor('center');
+  ctx.marker.setzIndex(350);
+}
+// 增量添加（地理编码逐个解析完成时调用）：有聚合器则交给聚合器
+function addMarker(ev) {
+  if (ev.longitude == null || ev.latitude == null) return;
+  const m = buildMarker(ev);
+  if (state.cluster) state.cluster.addMarkers([m]);
+  else if (state.map) m.setMap(state.map);
 }
 // 浏览器端地理编码（使用 JS API Key，类型匹配）
 // ⚠️ 高德 getLocation 回调在某些情况下（安全密钥不匹配、限流、网络）可能永远不返回，
@@ -133,10 +149,22 @@ async function geocodeAll() {
 function renderMarkers(list) {
   if (!state.map) return;
   const items = (list && list.length !== undefined) ? list : state.events;
+  if (state.cluster) { state.cluster.setMap(null); state.cluster = null; }
   for (const m of state.markers.values()) m.setMap(null);
   state.markers.clear();
+  const markers = [];
   for (const ev of items) {
-    if (ev.longitude != null && ev.latitude != null) addMarker(ev);
+    if (ev.longitude != null && ev.latitude != null) markers.push(buildMarker(ev));
+  }
+  // 点聚合：同城密集活动在小缩放级别合并为数字圆点，放大自动展开；
+  // 插件不可用时（如加载失败）退化为逐个点直挂地图
+  if (window.AMap && AMap.MarkerCluster) {
+    state.cluster = new AMap.MarkerCluster(state.map, markers, {
+      gridSize: 60,
+      renderClusterMarker,
+    });
+  } else {
+    for (const m of markers) m.setMap(state.map);
   }
   // 缺坐标的活动：在浏览器端顺序地理编码（带间隔，避免限流），登录用户自动回写
   geocodeMissingOnLoad(items);

@@ -227,6 +227,18 @@ body {
 .ak-marker.is-past { color: var(--ak-low); }
 .ak-marker.is-past .pin { background: var(--ak-low); }
 
+/* 点聚合：主题色圆点 + 数量 */
+.ak-cluster {
+  min-width: 34px; height: 34px; padding: 0 8px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(74, 171, 234, 0.85);
+  border: 2px solid #04111f;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  color: #04111f; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+}
+
 /* 高德信息窗里的详情 */
 .amap-info-content { background: transparent !important; padding: 0 !important; }
 .amap-info-close { display: none !important; }
