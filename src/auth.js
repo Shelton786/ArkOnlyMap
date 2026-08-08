@@ -27,8 +27,11 @@ import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'node:crypt
 import * as db from './db-d1.js';
 
 // Cloudflare Pages 的「环境变量 / 密钥」通过 c.env 注入；本地兜底 process.env。
+// 未配置时直接抛错：绝不使用代码内默认密钥签名会话，避免配置失误导致 token 可被伪造。
 function secretOf(env) {
-  return (env && env.SESSION_SECRET) || process.env.SESSION_SECRET || 'arknights-only-map-change-me';
+  const s = (env && env.SESSION_SECRET) || process.env.SESSION_SECRET;
+  if (!s) throw new Error('SESSION_SECRET 未配置：请在 .dev.vars / Pages 环境变量中设置随机长字符串');
+  return s;
 }
 
 export const COOKIE_NAME = 'ark_session';
@@ -81,16 +84,26 @@ function issueToken(user, secret) {
   return sign({ uid: user.id, username: user.username, role: user.role, exp: Date.now() + TOKEN_TTL }, secret);
 }
 
-// 写入会话 cookie（Hono 上下文）
+// 写入会话 cookie（Hono 上下文）；HTTPS 下附加 Secure，防止明文传输
+function isHttps(c) {
+  try {
+    return new URL(c.req.url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function setSessionCookie(c, token) {
+  const secure = isHttps(c) ? '; Secure' : '';
   c.header(
     'Set-Cookie',
-    `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${Math.floor(TOKEN_TTL / 1000)}; SameSite=Lax`
+    `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${Math.floor(TOKEN_TTL / 1000)}; SameSite=Lax${secure}`
   );
 }
 
 function clearSessionCookie(c) {
-  c.header('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
+  const secure = isHttps(c) ? '; Secure' : '';
+  c.header('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${secure}`);
 }
 
 // Hono 中间件：把当前用户挂到 c.set('user')（无则 null）

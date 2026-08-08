@@ -7,7 +7,8 @@
 const crypto = require('crypto');
 const { getUserById } = require('./db');
 
-const SECRET = process.env.SESSION_SECRET || 'arknights-only-map-change-me';
+const SECRET = process.env.SESSION_SECRET;
+if (!SECRET) throw new Error('SESSION_SECRET 未配置：请在环境变量 / .env 中设置随机长字符串');
 const COOKIE_NAME = 'ark_session';
 const TOKEN_TTL = 1000 * 60 * 60 * 24 * 30; // 30 天
 

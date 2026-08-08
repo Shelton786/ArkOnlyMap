@@ -57,7 +57,12 @@ export function createApp() {
   });
 
   // ---------------- 认证 ----------------
-  const secret = (c) => c.env.SESSION_SECRET || process.env.SESSION_SECRET || 'arknights-only-map-change-me';
+  // 与 auth.secretOf 保持一致：未配置 SESSION_SECRET 时抛错，绝不使用代码内默认密钥
+  const secret = (c) => {
+    const s = c.env.SESSION_SECRET || process.env.SESSION_SECRET;
+    if (!s) throw new Error('SESSION_SECRET 未配置：请在 .dev.vars / Pages 环境变量中设置随机长字符串');
+    return s;
+  };
   // 把 users 行整理成前端可用的公开资料（不暴露 password_hash）
   const shapeUser = (u, identities) => ({
     id: u.id,
