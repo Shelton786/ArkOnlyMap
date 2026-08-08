@@ -1,6 +1,5 @@
 -- 舟友同好集会地图 —— 账户系统 + 角色权限 + 审核流（增量迁移）
--- 应用：wrangler d1 execute DB --local  --file=migrations/0002_accounts.sql
---       wrangler d1 execute DB --remote --file=migrations/0002_accounts.sql
+-- 应用：npm run d1:migrate（本地）/ npm run d1:migrate:remote（线上）
 -- 兼容现有 users / conventions，仅做「加列 + 建表」，不删不改旧数据。
 
 -- 1) users 扩展：站内唯一身份号、邮箱登录名、展示名、头像、邮箱验证状态

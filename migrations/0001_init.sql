@@ -1,6 +1,5 @@
 -- 舟友同好集会地图 —— D1 初始化（Cloudflare Pages + D1）
--- 应用：wrangler d1 execute DB --local --file=migrations/0001_init.sql
---       wrangler d1 execute DB --remote --file=migrations/0001_init.sql
+-- 应用：npm run d1:migrate（本地）/ npm run d1:migrate:remote（线上）
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

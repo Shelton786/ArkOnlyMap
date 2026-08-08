@@ -5,7 +5,7 @@
 -- 注意：D1（Cloudflare SQLite）不支持 ADD COLUMN 时使用非恒定默认值（如 datetime('now')），
 -- 会报 "Cannot add a column with non-constant default"。故先加可空列，再用 UPDATE 回填。
 --
--- 应用方式（与本项目其它迁移一致，直接 execute，不用 migrations apply）：
+-- 应用方式：npm run d1:migrate（本地）/ npm run d1:migrate:remote（线上）
 --   wrangler d1 execute arknights-only-map --remote --file=migrations/0006_users_updated_at.sql
 
 ALTER TABLE users ADD COLUMN updated_at TEXT;

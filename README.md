@@ -57,7 +57,7 @@ cp .env.example .env
 
 ```bash
 npm install
-npm run d1:init        # 初始化本地 D1（首次）
+npm run d1:migrate     # 初始化本地 D1（首次；幂等，重复执行无副作用）
 npm run seed:local     # 生成并导入种子数据（可选，让本地也有标记）
 npm run dev            # 启动 wrangler pages dev，浏览器打开 http://localhost:8788
 ```
@@ -201,8 +201,8 @@ node scripts/ingest/run.mjs --from-list "ids.txt" --dry-run
 **本地操作**（需已登录 Cloudflare 账号）
 
 ```bash
-# 1) 应用账户系统迁移（仅首次）
-npx wrangler d1 execute DB --remote --file=migrations/0002_accounts.sql
+# 1) 应用迁移（幂等：只执行未跑过的文件；老库先跑一次 npm run d1:backfill:remote 登记历史）
+npm run d1:migrate:remote
 # 2) 回溯：给现有用户分配 AMID、Doc→site_admin、写入 password identity
 node scripts/backfill_accounts.mjs            # 默认线上 D1
 node scripts/backfill_accounts.mjs --local    # 或本地 D1
@@ -268,11 +268,13 @@ npx wrangler d1 create arknights-only-map
 # 终端会给出一个 database_id，把它填进 wrangler.toml 的 database_id
 ```
 
-然后初始化表结构：
+然后初始化表结构（迁移系统会记录已执行的文件，重复执行安全）：
 
 ```bash
-npm run d1:init:remote
+npm run d1:migrate:remote
 ```
+
+> **从旧方式迁移过来的老库**：如果此前用 `wrangler d1 execute --file=...` 手动跑过迁移，先执行一次 `npm run d1:backfill:remote`（本地为 `npm run d1:backfill`）把历史登记进 `d1_migrations` 表，之后统一用 `d1:migrate`。新增迁移只需往 `migrations/` 添加 `0008_xxx.sql` 再执行 `d1:migrate`。
 
 #### 3. 配置环境变量与密钥
 
@@ -325,7 +327,7 @@ npm run seed:remote           # 写入线上 D1
 #### 本地预览（与线上一致）
 
 ```bash
-npm run d1:init      # 初始化本地 D1（首次）
+npm run d1:migrate   # 初始化本地 D1（首次；幂等）
 npm run seed:local   # 可选：生成并导入本地种子
 npm run dev          # wrangler pages dev，打开 http://localhost:8788
 ```
