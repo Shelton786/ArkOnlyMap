@@ -20,9 +20,9 @@
 
 ### 1. `parseType()` 是死代码，且基于不存在的字段（建议删除或改写）
 
-`parseType()` 里读的是 `$item['evmtype']`，但**真实接口并不返回 `evmtype`**（实测响应顶层键只有 `id/eventId/type/tag/enabled/...`，无 `evmtype`；`type` 才是 `"ONLY"/"综合同人展"` 这类中文标签）。因此：
+`parseType()` 里读的是 `$item['evmtype']`，但**真实接口并不返回 `evmtype`**（实测响应顶层键只有 `id/type/tag/enabled/...`，无 `evmtype`；`type` 才是 `"ONLY"/"综合同人展"` 这类中文标签）。因此：
 
-- `parseType()` 永远命中兜底分支 `return '综合展'`，逻辑建立在错误假设上；
+- 那个 `$typeMap`（`evmtype`→类型）分支**永远走不到**，是死代码（函数随后会落到"从 tag 猜类型"的兜底，而非直接 `return '综合展'`）；
 - 更关键的是它**从未被调用**——`parseEvents()` 直接用 `$item['type']` 赋值 `type`。
 
 这会让后来者误以为有 `evmtype` 映射可用。建议：直接删除 `parseType()`，或若想做类型归一化，改为基于 `type` 字符串：
@@ -70,7 +70,7 @@ function fetchPage($search, $page, $retries = 3) {
 - `parseEvents()` 里：`enabled == 5` → 取消（追加 `(已取消)`）。
 - `parseEnded()` 里：`enabled == 1` → `'已结束'`、`== 2` → `'筹备中'`、`== 5` → `'已取消'`。
 
-两处对 `enabled` 的编码解读不一致，难以确认哪个为准。建议：
+两处对 `enabled` 的解释**分散、未统一**（并非真正矛盾：两边都认 `5` 为取消），维护时容易改了这边漏那边。建议：
 
 1. 统一一个 `interpretEnabled($item)` 函数，集中解释 `enabled`；
 2. 取消的展会（`enabled == 5`）默认**过滤掉**而非仅打标——加一个 `includeCancelled`（默认 0）参数，方便只想要有效活动的下游；本项目即采用"跳过已取消"策略。
