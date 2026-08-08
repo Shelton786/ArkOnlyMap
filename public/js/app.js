@@ -33,10 +33,7 @@ function bindUI() {
   });
   document.getElementById('toggle-list').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.toggle('open');
-  });
-  window.closeDetail = closeDetail;
-  window.closeModal = closeModal;
-}
+  });}
 
 /* ---------------- 启动 ---------------- */
 (async function main() {

@@ -84,7 +84,7 @@ async function openAccountCenter() {
     <div class="modal-error" id="ac-error"></div>
     <div class="modal-actions">
       <button class="ak-btn ak-btn--primary" id="ac-save">保存</button>
-      <button class="ak-btn ak-btn--ghost" onclick="closeModal()">关闭</button>
+      <button class="ak-btn ak-btn--ghost" data-close>关闭</button>
     </div>
     <hr class="ac-sep" />
     <div class="ac-section-title">第三方绑定</div>
@@ -99,7 +99,6 @@ async function openAccountCenter() {
   if (hypergryph) document.getElementById('ac-unhg').onclick = unbindHg;
   else document.getElementById('ac-bindhg').onclick = bindHg;
 }
-window.openAccountCenter = openAccountCenter;
 
 async function saveAccount() {
   const dn = document.getElementById('ac-dn').value.trim();
@@ -110,7 +109,6 @@ async function saveAccount() {
   if (!r.ok) { err.textContent = d.error || '保存失败'; return; }
   state.user = d.user; renderAuth(); closeModal(); toast('已保存');
 }
-window.saveAccount = saveAccount;
 
 async function bindHg() {
   const uid = prompt('请输入你的鹰角通行证 11 位 UID：');
@@ -120,7 +118,6 @@ async function bindHg() {
   if (!r.ok) { alert(d.error || '绑定失败'); return; }
   state.user = d.user; renderAuth(); openAccountCenter(); toast('已绑定鹰角通行证');
 }
-window.bindHg = bindHg;
 
 async function unbindHg() {
   if (!confirm('确定解绑鹰角通行证？')) return;
@@ -129,4 +126,3 @@ async function unbindHg() {
   if (!r.ok) { alert(d.error || '解绑失败'); return; }
   state.user = d.user; renderAuth(); openAccountCenter(); toast('已解绑');
 }
-window.unbindHg = unbindHg;

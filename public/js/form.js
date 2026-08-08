@@ -19,7 +19,6 @@ function openEdit(id) {
   if (!ev) return;
   openForm(ev);
 }
-window.openEdit = openEdit;
 
 async function deleteEvent(id) {
   if (!confirm('确定删除该集会？此操作不可撤销。')) return;
@@ -29,7 +28,6 @@ async function deleteEvent(id) {
   closeDetail();
   loadEvents();
 }
-window.deleteEvent = deleteEvent;
 
 function openForm(ev, opts = {}) {
   const isEdit = !!ev && !opts.supplementOf;
@@ -85,7 +83,7 @@ function openForm(ev, opts = {}) {
     <div class="modal-error" id="f-error"></div>
     <div class="modal-actions">
       <button type="button" class="ak-btn ak-btn--primary" id="f-submit">${isSupplement ? '提交补充' : isEdit ? '保存' : '提交'}</button>
-      <button type="button" class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+      <button type="button" class="ak-btn ak-btn--ghost" data-close>取消</button>
     </div>`);
 
   document.getElementById('f-submit').onclick = () => submitForm(ev, opts);
@@ -245,6 +243,8 @@ async function submitForm(ev, opts = {}) {
 
 function openSupplement(parentEv) {
   if (!state.user) { openAuth('login'); return; }
-  openForm(null, { supplementOf: parentEv });
+  // 兼容传入活动对象或活动 id；id 时先解析为对象，否则 parent_event_id 会丢失
+  const evObj = (parentEv && typeof parentEv === 'object') ? parentEv : state.events.find((e) => e.id === parentEv);
+  if (!evObj) return;
+  openForm(null, { supplementOf: evObj });
 }
-window.openSupplement = openSupplement;

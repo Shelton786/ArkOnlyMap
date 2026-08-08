@@ -39,7 +39,6 @@ async function openReviewQueue() {
     b.onclick = () => reviewAction(b.dataset.id, b.dataset.act);
   });
 }
-window.openReviewQueue = openReviewQueue;
 
 async function reviewAction(id, action) {
   const r = await api('/api/admin/review/' + id, { method: 'POST', body: JSON.stringify({ action }) });
@@ -48,7 +47,6 @@ async function reviewAction(id, action) {
   loadEvents();
   openReviewQueue();
 }
-window.reviewAction = reviewAction;
 
 /* ---------------- 用户管理（站长） ---------------- */
 async function openUserAdmin() {
@@ -68,7 +66,7 @@ async function openUserAdmin() {
           </select>
         </div>`).join('')}
     </div>
-    <div class="modal-actions"><button class="ak-btn ak-btn--ghost" onclick="closeModal()">关闭</button></div>`);
+    <div class="modal-actions"><button class="ak-btn ak-btn--ghost" data-close>关闭</button></div>`);
   document.querySelectorAll('.ua-role').forEach((sel) => {
     sel.onchange = async () => {
       const id = Number(sel.dataset.id);
@@ -81,4 +79,3 @@ async function openUserAdmin() {
     };
   });
 }
-window.openUserAdmin = openUserAdmin;

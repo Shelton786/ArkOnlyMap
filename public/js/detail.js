@@ -21,21 +21,21 @@ function openDetail(ev) {
   const isPending = ev.review_status === 'pending';
   const actions = [];
   if (link) actions.push(link);
-  if (canEdit(ev)) actions.push(`<button class="ak-btn ak-btn--sm" onclick="openEdit(${ev.id})">编辑</button>`);
-  if (canDelete(ev)) actions.push(`<button class="ak-btn ak-btn--sm ak-btn--danger" onclick="deleteEvent(${ev.id})">删除</button>`);
-  if (u && ev.review_status !== 'merged') actions.push(`<button class="ak-btn ak-btn--sm ak-btn--ghost" onclick="openSupplement(${ev.id})">补充信息</button>`);
+  if (canEdit(ev)) actions.push(`<button class="ak-btn ak-btn--sm" data-act="edit">编辑</button>`);
+  if (canDelete(ev)) actions.push(`<button class="ak-btn ak-btn--sm ak-btn--danger" data-act="delete">删除</button>`);
+  if (u && ev.review_status !== 'merged') actions.push(`<button class="ak-btn ak-btn--sm ak-btn--ghost" data-act="supplement">补充信息</button>`);
   if (u && ev.organizer_claim_status === 'none' && !(ev.organizer_user_id === u.id && ev.organizer_claim_status === 'approved')) {
-    actions.push(`<button class="ak-btn ak-btn--sm ak-btn--ghost" onclick="claimEvent(${ev.id})">认领此集会</button>`);
+    actions.push(`<button class="ak-btn ak-btn--sm ak-btn--ghost" data-act="claim">认领此集会</button>`);
   }
   if (isAdmin && ev.organizer_claim_status === 'pending') {
-    actions.push(`<button class="ak-btn ak-btn--sm" onclick="approveClaim(${ev.id})">通过认领</button>`);
+    actions.push(`<button class="ak-btn ak-btn--sm" data-act="approve-claim">通过认领</button>`);
   }
   const reviewTag = isPending
     ? `<span class="badge badge--pending">${ev.submission_type === 'supplement' ? '未确认·补充' : '未确认'}</span>`
     : '';
   const panel = document.getElementById('detail-panel');
   panel.innerHTML = `
-    <button class="detail-close" onclick="closeDetail()">×</button>
+    <button class="detail-close">×</button>
     ${p}
     <div class="detail-body">
       <h2 class="detail-title">${esc(ev.title)}</h2>
@@ -55,6 +55,18 @@ function openDetail(ev) {
       ${ev.description ? `<div class="detail-desc">${esc(ev.description)}</div>` : ''}
       <div class="detail-actions">${actions.join('')}</div>
     </div>`;
+  panel.querySelector('.detail-close').addEventListener('click', closeDetail);
+  // 操作按钮直接闭包绑定当前活动，无需内联 onclick 与全局导出
+  const actHandlers = {
+    edit: () => openEdit(ev.id),
+    delete: () => deleteEvent(ev.id),
+    supplement: () => openSupplement(ev),
+    claim: () => claimEvent(ev.id),
+    'approve-claim': () => approveClaim(ev.id),
+  };
+  panel.querySelectorAll('button[data-act]').forEach((b) => {
+    b.addEventListener('click', actHandlers[b.dataset.act]);
+  });
   panel.classList.remove('hidden');
 }
 function row(k, v) { return `<div class="row"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`; }
@@ -81,7 +93,6 @@ async function claimEvent(id) {
   const ev = state.events.find((e) => e.id === id);
   if (ev) { Object.assign(ev, d); openDetail(ev); } else loadEvents();
 }
-window.claimEvent = claimEvent;
 
 async function approveClaim(id) {
   const r = await api(`/api/events/${id}/claim/approve`, { method: 'POST' });
@@ -92,4 +103,3 @@ async function approveClaim(id) {
   if (ev) Object.assign(ev, d);
   openDetail(ev || d);
 }
-window.approveClaim = approveClaim;

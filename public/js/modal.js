@@ -9,11 +9,13 @@
 'use strict';
 
 /* ---------------- 弹窗框架 + 登录注册 ---------------- */
-/* ---------------- 弹窗框架 ---------------- */
 function openModal(html) {
   const root = document.getElementById('modal-root');
-  root.innerHTML = `<div class="modal-mask" onclick="if(event.target===this)closeModal()">
-    <div class="modal">${html}</div></div>`;
+  root.innerHTML = `<div class="modal-mask"><div class="modal">${html}</div></div>`;
+  const mask = root.querySelector('.modal-mask');
+  mask.addEventListener('click', (e) => { if (e.target === mask) closeModal(); });
+  // 弹窗内带 data-close 的按钮统一关闭
+  root.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closeModal));
 }
 function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
 
@@ -28,13 +30,17 @@ function openAuth(mode) {
     <div class="modal-error" id="au-error"></div>
     <div class="modal-actions">
       <button class="ak-btn ak-btn--primary" id="au-submit">${isLogin ? '登录' : '注册'}</button>
-      <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+      <button class="ak-btn ak-btn--ghost" data-close>取消</button>
     </div>
     <div class="modal-switch">${isLogin ? '还没有身份？' : '已有身份？'}
-      <a onclick="openAuth('${isLogin ? 'register' : 'login'}')">${isLogin ? '立即注册' : '去登录'}</a>
+      <a id="au-switch" role="button" tabindex="0">${isLogin ? '立即注册' : '去登录'}</a>
     </div>`);
   document.getElementById('au-submit').onclick = () => submitAuth(isLogin);
   document.getElementById('au-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(isLogin); });
+  const sw = document.getElementById('au-switch');
+  const switchMode = () => openAuth(isLogin ? 'register' : 'login');
+  sw.addEventListener('click', switchMode);
+  sw.addEventListener('keydown', (e) => { if (e.key === 'Enter') switchMode(); });
 }
 async function submitAuth(isLogin) {
   const username = document.getElementById('au-name').value.trim();

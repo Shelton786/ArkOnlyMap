@@ -186,7 +186,7 @@
           <div class="login-prompt">
             <div class="icon">🔒</div>
             <p>请先登录以查看账户信息</p>
-            <button class="ak-btn ak-btn--primary" onclick="location.href='/'">去登录</button>
+            <a class="ak-btn ak-btn--primary" href="/" style="text-decoration:none;">去登录</a>
           </div>`;
         return;
       }
@@ -284,7 +284,7 @@
         <div class="modal-error" id="ep-error"></div>
         <div class="modal-actions">
           <button class="ak-btn ak-btn--primary" id="ep-save">保存</button>
-          <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+          <button class="ak-btn ak-btn--ghost" data-close>取消</button>
         </div>`);
       document.getElementById('ep-save').onclick = saveProfile;
     }
@@ -316,7 +316,7 @@
         <div class="modal-error" id="cp-error"></div>
         <div class="modal-actions">
           <button class="ak-btn ak-btn--primary" id="cp-save">确认修改</button>
-          <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+          <button class="ak-btn ak-btn--ghost" data-close>取消</button>
         </div>`);
       document.getElementById('cp-save').onclick = savePassword;
     }
@@ -349,7 +349,7 @@
         <div class="modal-error" id="hg-error"></div>
         <div class="modal-actions">
           <button class="ak-btn ak-btn--primary" id="hg-save">提交绑定</button>
-          <button class="ak-btn ak-btn--ghost" onclick="closeModal()">取消</button>
+          <button class="ak-btn ak-btn--ghost" data-close>取消</button>
         </div>`);
       document.getElementById('hg-save').onclick = bindHypergryph;
     }
