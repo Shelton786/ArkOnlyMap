@@ -573,7 +573,7 @@ export async function getLoginThrottle(db, key) {
 }
 
 // 记录一次失败；达到上限则锁定 lockMinutes 分钟。返回当前失败次数。
-export async function recordLoginFail(db, key, maxFails = 5, lockMinutes = 15) {
+export async function recordLoginFail(db, key, maxFails = 10, lockMinutes = 15) {
   await db.prepare(
     `INSERT INTO login_throttle (key, fails) VALUES (?, 1)
      ON CONFLICT(key) DO UPDATE SET fails = fails + 1`
