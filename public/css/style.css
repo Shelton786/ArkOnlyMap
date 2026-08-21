@@ -34,10 +34,14 @@ html, body {
 body {
   font-family: 'Noto Sans SC', 'Roboto', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
   color: var(--text);
+  /* PRTS 终端蓝图网格：细线坐标纸 + 原有氛围光 */
   background:
+    linear-gradient(rgba(74,171,234,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74,171,234,0.05) 1px, transparent 1px),
     radial-gradient(1200px 600px at 80% -10%, rgba(74,171,234,0.10), transparent 60%),
     radial-gradient(900px 500px at -10% 110%, rgba(74,171,234,0.08), transparent 60%),
     linear-gradient(160deg, var(--bg-0), var(--bg-1) 60%, var(--bg-2));
+  background-size: 44px 44px, 44px 44px, auto, auto, auto;
   overflow: hidden;
 }
 
@@ -150,21 +154,29 @@ body {
 
 /* ---------------- 侧栏筛选 ---------------- */
 .sidebar-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--line-soft); }
+/* 侧栏顶部装饰性英文行（游戏面板风格） */
+.deco-en {
+  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-size: 9px; letter-spacing: 2.5px; color: var(--text-mute);
+  opacity: .7; margin-bottom: 8px; user-select: none;
+}
 .sidebar-head .search-box { margin-bottom: 12px; }
 .sidebar-list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .filters-status { display: flex; gap: 6px; margin-bottom: 12px; }
+/* 状态 Tab：平行四边形斜切 + 激活态主色发光（游戏 UI 语言） */
 .tab {
   flex: 1; height: 32px;
-  background: transparent; border: 1px solid var(--line-soft);
+  background: rgba(7,11,22,0.5); border: 1px solid var(--line-soft);
   color: var(--text-dim); font-size: 12px; cursor: pointer;
-  clip-path: polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
   transition: all .15s;
 }
 .tab:hover { color: var(--text); border-color: var(--line); }
 .tab.active {
-  background: rgba(74,171,234,0.18);
+  background: linear-gradient(180deg, var(--ak-primary), var(--ak-primary-dark));
   border-color: var(--ak-primary);
-  color: #fff;
+  color: #04111f; font-weight: 700;
+  box-shadow: 0 0 14px rgba(74,171,234,0.35);
 }
 .filters-city { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 #country-select, #city-select {
@@ -173,7 +185,12 @@ body {
   border: 1px solid var(--line-soft); border-radius: var(--radius);
   font-size: 13px; outline: none;
 }
-.count { font-size: 12px; color: var(--text-mute); white-space: nowrap; }
+/* 等宽数字：计数 / 日期等统计感文字用终端风 */
+.count {
+  font-size: 12px; color: var(--text-mute); white-space: nowrap;
+  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-variant-numeric: tabular-nums; letter-spacing: .5px;
+}
 
 /* ---------------- 列表 ---------------- */
 .event-list { list-style: none; overflow-y: auto; flex: 1; padding: 10px; }
@@ -268,6 +285,16 @@ body {
 }
 
 /* ---------------- 详情面板 ---------------- */
+/* 终端机角落括线（游戏面板标志性元素）：通用工具类 */
+.ak-frame { position: relative; }
+.ak-frame::before, .ak-frame::after {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  pointer-events: none; z-index: 3; opacity: .9;
+  border: 2px solid var(--ak-primary);
+}
+.ak-frame::before { top: 6px; left: 6px; border-right: none; border-bottom: none; }
+.ak-frame::after { bottom: 6px; right: 6px; border-left: none; border-top: none; }
+
 .detail-panel {
   position: absolute; top: 76px; right: 16px; bottom: 16px; width: 380px;
   background: linear-gradient(180deg, rgba(18,32,66,0.97), rgba(7,11,22,0.97));
@@ -286,7 +313,11 @@ body {
 .detail-poster { width: 100%; height: auto; max-height: 360px; object-fit: contain; background: var(--bg-2); }
 .detail-body { padding: 16px 18px 22px; }
 .detail-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; padding-right: 24px; }
-.detail-sub { font-size: 12px; color: var(--text-mute); margin-bottom: 14px; letter-spacing: 1px; }
+.detail-sub {
+  font-size: 12px; color: var(--text-mute); margin-bottom: 14px; letter-spacing: 1px;
+  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-variant-numeric: tabular-nums;
+}
 .detail-rows { font-size: 13px; line-height: 2; }
 .detail-rows .row { display: flex; gap: 8px; border-bottom: 1px dashed var(--line-soft); padding: 6px 0; }
 .detail-rows .k { color: var(--text-mute); width: 64px; flex-shrink: 0; }
@@ -313,6 +344,14 @@ body {
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 .modal-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+/* 弹窗标题下的大写英文装饰行（游戏 UI 经典手法，内容统一的装饰串） */
+.modal-title::after {
+  content: '// TERMINAL ACCESS — RHODES ISLAND';
+  display: block; margin-top: 3px;
+  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-size: 10px; font-weight: 400; letter-spacing: 2px;
+  color: var(--text-mute); opacity: .75;
+}
 .modal-sub { font-size: 12px; color: var(--text-mute); margin-bottom: 18px; }
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
