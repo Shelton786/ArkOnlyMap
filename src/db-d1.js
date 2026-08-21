@@ -565,3 +565,33 @@ function normalizeEvent(d) {
   out.verified = out.verified ? 1 : 0;
   return out;
 }
+
+/* ---------------- 登录限流 ---------------- */
+// 读限流记录
+export async function getLoginThrottle(db, key) {
+  return db.prepare('SELECT key, fails, locked_until FROM login_throttle WHERE key = ?').bind(key).first();
+}
+
+// 记录一次失败；达到上限则锁定 lockMinutes 分钟。返回当前失败次数。
+export async function recordLoginFail(db, key, maxFails = 5, lockMinutes = 15) {
+  await db.prepare(
+    `INSERT INTO login_throttle (key, fails) VALUES (?, 1)
+     ON CONFLICT(key) DO UPDATE SET fails = fails + 1`
+  ).bind(key).run();
+  const row = await getLoginThrottle(db, key);
+  const fails = row ? row.fails : 1;
+  if (fails >= maxFails) {
+    const until = new Date(Date.now() + lockMinutes * 60 * 1000).toISOString();
+    await db.prepare('UPDATE login_throttle SET locked_until = ? WHERE key = ?').bind(until, key).run();
+  }
+  // 顺手清理 24h 前的陈旧记录，防止表无限增长
+  await db.prepare(
+    'DELETE FROM login_throttle WHERE (locked_until IS NULL AND fails = 0) OR locked_until < ?'
+  ).bind(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).run();
+  return fails;
+}
+
+// 登录成功：清除该 key 的失败记录
+export async function clearLoginThrottle(db, key) {
+  await db.prepare('DELETE FROM login_throttle WHERE key = ?').bind(key).run();
+}

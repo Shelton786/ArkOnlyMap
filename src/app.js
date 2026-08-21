@@ -119,13 +119,25 @@ export function createApp() {
     const loginId = (body.username || body.email || '').trim();
     const password = body.password || '';
     if (!loginId) return c.json({ error: '请输入昵称或邮箱' }, 400);
+    // 登录限流：按 IP+账号 计数，5 次失败锁 15 分钟
+    const ip = c.req.header('CF-Connecting-IP') || 'unknown';
+    const throttleKey = `${ip}|${loginId.toLowerCase()}`;
+    const th = await db.getLoginThrottle(c.env.DB, throttleKey);
+    if (th && th.locked_until && new Date(th.locked_until).getTime() > Date.now()) {
+      const mins = Math.ceil((new Date(th.locked_until).getTime() - Date.now()) / 60000);
+      return c.json({ error: `失败次数过多，请约 ${mins} 分钟后再试` }, 429);
+    }
+    if (th && th.locked_until) await db.clearLoginThrottle(c.env.DB, throttleKey); // 锁已过期，重置
     // 邮箱登录名优先，其次昵称
     const user = /@/.test(loginId)
       ? await db.getUserByEmail(c.env.DB, loginId)
       : await db.getUserByName(c.env.DB, loginId);
     if (!user || !auth.verifyPassword(password, user.password_hash)) {
-      return c.json({ error: '昵称/邮箱或密码错误' }, 401);
+      const fails = await db.recordLoginFail(c.env.DB, throttleKey);
+      if (fails >= 5) return c.json({ error: '失败次数过多，账号已临时锁定 15 分钟' }, 429);
+      return c.json({ error: `昵称/邮箱或密码错误（还可尝试 ${5 - fails} 次）` }, 401);
     }
+    await db.clearLoginThrottle(c.env.DB, throttleKey);
     const token = auth.issueToken(user, secret(c));
     auth.setSessionCookie(c, token);
     auth.setCsrfCookie(c);
