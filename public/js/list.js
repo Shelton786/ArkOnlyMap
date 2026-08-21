@@ -80,7 +80,7 @@ function makeEventCard(ev) {
   art.innerHTML = `
     <div class="ec-top">
       <h3 class="ec-title">${esc(ev.title)}</h3>
-      <span class="badge badge--${ev.status}">${STATUS_TEXT[ev.status] || '待定'}</span>
+      <span class="badge badge--${ev.status} badge--solid">${STATUS_TEXT[ev.status] || '待定'}</span>
       ${ev.review_status === 'pending' ? `<span class="badge badge--pending">${ev.submission_type === 'supplement' ? '未确认·补充' : '未确认'}</span>` : ''}
     </div>
     <p class="ec-meta">
