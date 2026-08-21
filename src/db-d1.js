@@ -345,6 +345,7 @@ export async function upsertEvents(db, records) {
     const vals = cols.map((c) => {
       const v = r[c];
       if (c === 'verified') return v ? 1 : 0;
+      if (c === 'country') return v ?? '中国'; // 归一化：采集缺省视为中国
       if (v === undefined) return null;
       return v;
     });
@@ -562,6 +563,7 @@ function normalizeEvent(d) {
   }
   if (out.longitude !== null && out.longitude !== undefined) out.longitude = Number(out.longitude);
   if (out.latitude !== null && out.latitude !== undefined) out.latitude = Number(out.latitude);
+  if (out.country == null) out.country = '中国'; // 本站以国内活动为主，缺省归一为中国
   out.verified = out.verified ? 1 : 0;
   return out;
 }
