@@ -1,6 +1,6 @@
 // iCalendar 订阅源：未结束的活动写入日历（可按日期直接订阅）
 // 地址：https://arkonlymap.pages.dev/feed.ics
-import { listFeedEvents } from '../../src/db-d1.js';
+import { listFeedEvents } from '../src/db-d1.js';
 
 const SITE = 'https://arkonlymap.pages.dev';
 

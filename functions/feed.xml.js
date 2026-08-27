@@ -1,6 +1,6 @@
 // RSS 2.0 订阅源：新收录的未结束活动（按收录时间倒序，30 条）
 // 地址：https://arkonlymap.pages.dev/feed.xml
-import { listFeedEvents } from '../../src/db-d1.js';
+import { listFeedEvents } from '../src/db-d1.js';
 
 const SITE = 'https://arkonlymap.pages.dev';
 
