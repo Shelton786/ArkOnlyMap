@@ -65,8 +65,8 @@ body {
 .brand { display: flex; align-items: baseline; gap: 10px; }
 .brand .logo {
   color: var(--ak-primary);
-  font-size: 20px;
-  text-shadow: 0 0 12px rgba(74,171,234,0.7);
+  width: 22px; height: 22px;
+  filter: drop-shadow(0 0 8px rgba(74,171,234,0.7));
   transform: translateY(2px);
 }
 .brand-title {
@@ -204,7 +204,18 @@ body {
   padding: 12px 14px; margin-bottom: 10px;
   cursor: pointer; border-radius: var(--radius);
   transition: all .15s;
+  position: relative; overflow: hidden;
 }
+/* hover 扫光：斜切光束从左向右掠过（游戏卡片选中反馈） */
+.event-card::after {
+  content: ''; position: absolute; top: 0; left: -80%;
+  width: 55%; height: 100%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(74,171,234,0.16), transparent);
+  transform: skewX(-20deg);
+}
+.event-card:hover::after { animation: card-sweep .55s ease-out; }
+@keyframes card-sweep { from { left: -80%; } to { left: 135%; } }
+@media (prefers-reduced-motion: reduce) { .event-card:hover::after { animation: none; } }
 .event-card:hover { border-color: var(--ak-primary); transform: translateX(2px); background: rgba(24,41,79,0.95); }
 .event-card.is-active { border-color: var(--ak-primary); box-shadow: 0 0 0 1px var(--ak-primary) inset; }
 .event-card .ec-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
