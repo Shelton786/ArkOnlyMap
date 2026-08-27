@@ -28,7 +28,10 @@ async function openReviewQueue() {
     item.innerHTML = `
       <div class="ri-head"><b>${esc(ev.title)}</b><span class="badge badge--pending">${esc(typeTxt)}</span></div>
       <div class="ri-meta">${esc(ev.city || '')} · 提交者 ${esc(ev.submitted_by_name || '匿名')}${ev.submission_type === 'supplement' && ev.parent_event_id ? ' · 补充至 #' + esc(ev.parent_event_id) : ''}</div>
-      ${ev.description ? '<div class="ri-desc">' + esc(ev.description) + '</div>' : ''}
+      ${Array.isArray(ev._diff) ? (ev._diff.length
+        ? '<div class="ri-desc">' + ev._diff.map((d) => `<b>${esc(d.label)}</b>：${esc(d.from)} → ${esc(d.to)}`).join('<br/>') + '</div>'
+        : '<div class="ri-desc">（与原活动相比无字段变化）</div>')
+        : (ev.description ? '<div class="ri-desc">' + esc(ev.description) + '</div>' : '')}
       <div class="ri-actions">
         <button class="ak-btn ak-btn--sm ak-btn--primary" data-act="approve" data-id="${ev.id}">通过</button>
         <button class="ak-btn ak-btn--sm ak-btn--danger" data-act="reject" data-id="${ev.id}">驳回</button>

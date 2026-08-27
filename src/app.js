@@ -410,8 +410,36 @@ export function createApp() {
   });
 
   // ---------------- 管理员：审核队列 ----------------
+  // 补充类型的字段中文名（生成 diff 用）
+  const DIFF_LABELS = {
+    title: '名称', start_date: '开始日期', end_date: '结束日期', province: '省份', city: '城市',
+    district: '区县', country: '国家/地区', venue: '场馆', address: '地址', organizer: '主办',
+    source_url: '来源链接', poster_url: '海报', description: '介绍', tags: '标签',
+  };
+  // 对比补充行与原活动，产出非空且发生变化的字段列表
+  function diffSupplement(parent, sup) {
+    const norm = (v) => (Array.isArray(v) ? v.join('、') : (v == null ? '' : String(v)));
+    const out = [];
+    for (const [k, label] of Object.entries(DIFF_LABELS)) {
+      const from = norm(parent[k]);
+      const to = norm(sup[k]);
+      if (to !== '' && to !== from) out.push({ field: k, label, from: from || '（空）', to });
+    }
+    return out;
+  }
   app.get('/api/admin/review', auth.requireAdminOrAbove, async (c) => {
-    return c.json(await db.listPendingEvents(c.env.DB));
+    const list = await db.listPendingEvents(c.env.DB);
+    // 补充类型附带与原活动的字段差异，管理员直接看到「改了什么」
+    const enriched = [];
+    for (const ev of list) {
+      if (ev.submission_type === 'supplement' && ev.parent_event_id) {
+        const parent = await db.getEvent(c.env.DB, ev.parent_event_id);
+        enriched.push({ ...ev, _diff: parent ? diffSupplement(parent, ev) : [] });
+      } else {
+        enriched.push(ev);
+      }
+    }
+    return c.json(enriched);
   });
 
   // 待审认领（主办认领申请）
