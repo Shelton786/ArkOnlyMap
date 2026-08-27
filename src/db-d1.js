@@ -597,3 +597,19 @@ export async function recordLoginFail(db, key, maxFails = 10, lockMinutes = 15) 
 export async function clearLoginThrottle(db, key) {
   await db.prepare('DELETE FROM login_throttle WHERE key = ?').bind(key).run();
 }
+
+/* ---------------- 订阅源 ---------------- */
+// RSS / 日历订阅用：已审核且未结束的活动，按收录时间倒序
+export async function listFeedEvents(db, limit = 30) {
+  const today = new Date().toISOString().slice(0, 10);
+  const r = await db
+    .prepare(
+      `SELECT id, title, start_date, end_date, province, city, venue, address, description, created_at
+       FROM conventions
+       WHERE review_status = 'approved' AND COALESCE(end_date, start_date) >= ?
+       ORDER BY created_at DESC LIMIT ?`
+    )
+    .bind(today, limit)
+    .all();
+  return r.results || [];
+}
