@@ -35,7 +35,13 @@ function loadAmap() {
 function initMap() {
   const map = new AMap.Map('map', {
     zoom: DEFAULT_ZOOM, center: DEFAULT_CENTER, mapStyle: 'amap://styles/normal',
-    viewMode: '2D',
+    // 3D 模式加载新版矢量底图（道路/地铁数据与主端同步更新）；
+    // pitch 压 0 + 禁用旋转俯仰，交互保持平面地图手感
+    viewMode: '3D',
+    pitch: 0,
+    rotation: 0,
+    rotateEnable: false,
+    pitchEnable: false,
     resizeEnable: true, /* 启用 AMap 自适应容器尺寸变化 */
   });
   map.addControl(new AMap.Scale());
