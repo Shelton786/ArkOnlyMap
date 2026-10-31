@@ -21,6 +21,8 @@ function openDetail(ev) {
   const isPending = ev.review_status === 'pending';
   const actions = [];
   if (link) actions.push(link);
+  // 活动详情页（/event/<id>）：可被搜索引擎索引的独立页面，也方便分享单个集会
+  actions.push(`<a class="detail-link" href="/event/${ev.id}" target="_blank" rel="noopener">活动详情页 ↗</a>`);
   if (canEdit(ev)) actions.push(`<button class="ak-btn ak-btn--sm" data-act="edit">编辑</button>`);
   if (canDelete(ev)) actions.push(`<button class="ak-btn ak-btn--sm ak-btn--danger" data-act="delete">删除</button>`);
   if (u && ev.review_status !== 'merged') actions.push(`<button class="ak-btn ak-btn--sm ak-btn--ghost" data-act="supplement">补充信息</button>`);
