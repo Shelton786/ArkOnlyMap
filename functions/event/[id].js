@@ -117,16 +117,42 @@ const NOT_FOUND = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>活动不存在 · 舟友同好集会地图</title>
+  <meta name="robots" content="noindex, follow" />
+  <meta name="theme-color" content="#070b16" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    html, body { position: static !important; height: auto !important; overflow-y: auto !important; }
+    .nf-body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; box-sizing: border-box; }
+    .nf-card {
+      width: 100%; max-width: 560px; text-align: center;
+      background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(7,11,22,0.95));
+      border: 1px solid var(--line);
+      clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+      padding: 44px 28px 36px;
+    }
+    .nf-code {
+      font-family: 'Roboto', monospace; font-size: 72px; font-weight: 700; line-height: 1;
+      background: linear-gradient(90deg, #fff, var(--ak-primary));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .nf-card h1 { font-family: 'Noto Serif SC', serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 16px 0 8px; }
+    .nf-tip { color: var(--text-dim); font-size: 13px; line-height: 1.9; margin: 0 0 24px; }
+    .nf-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .nf-actions .ak-btn { text-decoration: none; height: 36px; padding: 0 20px; font-size: 13px; }
+  </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand"><h1 class="brand-title"><a href="/" style="color:inherit;text-decoration:none">舟友同好集会地图</a></h1></div>
-  </header>
-  <main style="max-width:720px;margin:0 auto;padding:40px 16px;text-align:center">
-    <p class="list-empty">未找到该活动，可能已被合并或删除。</p>
-    <p><a class="ak-btn ak-btn--sm" href="/">返回地图首页</a></p>
+  <main class="nf-body">
+    <section class="nf-card">
+      <div class="nf-code">404</div>
+      <h1>活动不存在</h1>
+      <p class="nf-tip">未找到该活动，可能已被合并、删除，或链接有误。<br/>不妨回到地图搜索活动名称。</p>
+      <div class="nf-actions">
+        <a class="ak-btn ak-btn--primary" href="/">返回地图</a>
+        <a class="ak-btn ak-btn--ghost" href="/about.html">关于本站</a>
+      </div>
+    </section>
   </main>
 </body>
 </html>`;
