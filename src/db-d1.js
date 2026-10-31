@@ -34,9 +34,11 @@ const STATUS_SQL = `CASE
 END`;
 
 const BASE_SELECT = `SELECT c.*, ${STATUS_SQL} AS status,
-  u.username AS submitted_by_name, u.amid AS submitted_by_amid
+  u.username AS submitted_by_name, u.amid AS submitted_by_amid,
+  ou.username AS organizer_user_name, ou.amid AS organizer_user_amid
   FROM conventions c
-  LEFT JOIN users u ON u.id = c.submitted_by`;
+  LEFT JOIN users u ON u.id = c.submitted_by
+  LEFT JOIN users ou ON ou.id = c.organizer_user_id`;
 
 // 建表（D1 不支持 IF NOT EXISTS 一次多语句的差异，逐条执行更稳妥）
 export async function initSchema(db) {

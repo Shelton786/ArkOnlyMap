@@ -46,12 +46,11 @@ function openDetail(ev) {
         ${ev.city ? row('城市', ev.city + (isChina(ev.country) ? (ev.province ? ' / ' + ev.province : '') : (ev.country ? ' / ' + ev.country : ''))) : ''}
         ${ev.venue ? row('场馆', ev.venue) : ''}
         ${ev.address ? row('地址', ev.address) : ''}
-        ${ev.organizer ? row('主办', ev.organizer) : ''}
+        ${organizerRow(ev)}
         ${tags.length ? row('标签', tags.join('、')) : ''}
         ${ev.submitted_by_name ? `<div class="row"><span class="k">提交者</span><span class="v">${ev.submitted_by_amid ? `<a href="/account/${esc(ev.submitted_by_amid)}" style="color:var(--ak-primary);text-decoration:none;">${esc(ev.submitted_by_name)}</a>` : esc(ev.submitted_by_name)}</span></div>` : ''}
         ${isPending ? row('审核', ev.submission_type === 'supplement' ? '补充待合并' : '待管理员确认') : ''}
         ${ev.organizer_claim_status === 'pending' ? row('认领', '待管理员确认') : ''}
-        ${ev.organizer_claim_status === 'approved' ? row('主办', '已认领') : ''}
         ${ev.verified ? row('核实', '✓ 已核实') : ''}
       </div>
       ${ev.description ? `<div class="detail-desc">${esc(ev.description)}</div>` : ''}
@@ -72,6 +71,19 @@ function openDetail(ev) {
   panel.classList.remove('hidden');
 }
 function row(k, v) { return `<div class="row"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`; }
+// 主办行：认领通过后渲染为站内主页链接（与「提交者」一致），点击跳转到该主办的主页；
+// 源资料里的主办名（organizer 文本）与账号昵称不一致时，作为原名附注保留。
+function organizerRow(ev) {
+  if (ev.organizer_claim_status === 'approved' && ev.organizer_user_amid) {
+    const origin = ev.organizer && ev.organizer !== ev.organizer_user_name ? `（${esc(ev.organizer)}）` : '';
+    return `<div class="row"><span class="k">主办</span><span class="v">` +
+      `<a href="/account/${esc(ev.organizer_user_amid)}" style="color:var(--ak-primary);text-decoration:none;">${esc(ev.organizer_user_name || '本站同好')}</a>` +
+      ` <span style="color:var(--text-mute);font-size:12px;">已认领</span>${origin}</span></div>`;
+  }
+  if (ev.organizer) return row('主办', ev.organizer);
+  // 兜底：认领通过但账号异常（如用户被删）时，保持旧的「已认领」展示
+  return ev.organizer_claim_status === 'approved' ? row('主办', '已认领') : '';
+}
 function closeDetail() {
   state.selectedId = null;
   document.getElementById('detail-panel').classList.add('hidden');

@@ -29,6 +29,8 @@ function renderPage(ev) {
   const poster = ev.poster_url && /^https?:\/\//i.test(ev.poster_url) ? ev.poster_url : '';
   const tags = Array.isArray(ev.tags) ? ev.tags : [];
   const abroad = ev.country && ev.country !== '中国';
+  // 认领通过的主办：有站内账号，可链接到 TA 的主页（/account/<amid>）
+  const claimed = ev.organizer_claim_status === 'approved' && !!ev.organizer_user_amid;
 
   const ld = {
     '@context': 'https://schema.org',
@@ -51,16 +53,24 @@ function renderPage(ev) {
     },
     image: poster ? [poster] : undefined,
     description: desc,
-    organizer: ev.organizer ? { '@type': 'Organization', name: ev.organizer } : undefined,
+    organizer: claimed
+      ? { '@type': 'Person', name: ev.organizer_user_name || ev.organizer || undefined, url: `${SITE}/account/${ev.organizer_user_amid}` }
+      : (ev.organizer ? { '@type': 'Organization', name: ev.organizer } : undefined),
     url: `${SITE}/event/${ev.id}`,
   };
 
   const row = (k, v) => `<div class="row"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`;
+  const organizerRowHtml = claimed
+    ? `<div class="row"><span class="k">主办</span><span class="v">` +
+      `<a href="/account/${esc(ev.organizer_user_amid)}" style="color:var(--ak-primary);text-decoration:none;">${esc(ev.organizer_user_name || '本站同好')}</a>` +
+      (ev.organizer && ev.organizer !== ev.organizer_user_name ? `（${esc(ev.organizer)}）` : '') +
+      `</span></div>`
+    : (ev.organizer ? row('主办', ev.organizer) : (ev.organizer_claim_status === 'approved' ? row('主办', '已认领') : ''));
   const rows = [
     ev.city ? row('城市', ev.city + (abroad ? (ev.country ? ' / ' + ev.country : '') : (ev.province ? ' / ' + ev.province : ''))) : '',
     ev.venue ? row('场馆', ev.venue) : '',
     ev.address ? row('地址', ev.address) : '',
-    ev.organizer ? row('主办', ev.organizer) : '',
+    organizerRowHtml,
     tags.length ? row('标签', tags.join('、')) : '',
   ].join('');
 
