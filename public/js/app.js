@@ -63,4 +63,8 @@ function bindUI() {
       }
     }, 80);
   }
+  // PWA：注册 Service Worker（离线可用 app shell；/api/ 数据不走缓存，保证新鲜）
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
 })();
