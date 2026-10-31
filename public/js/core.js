@@ -90,6 +90,18 @@ function esc(s) {
 function api(path, opts = {}) {
   return fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
 }
+// 防抖：把高频连续调用（如搜索框逐字符输入）合并为「停止触发 delay 毫秒后」执行一次。
+// 注意：返回的包装函数必须只创建一次并复用；若每次触发都现建实例，则每个字符都会起一个
+// 独立定时器，等于没有防抖。包装函数带 cancel()，可取消尚未执行的调用。
+function debounce(fn, delay = 200) {
+  let timer = null;
+  const wrapped = (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn(...args); }, delay);
+  };
+  wrapped.cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  return wrapped;
+}
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.remove('hidden');

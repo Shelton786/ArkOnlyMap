@@ -11,8 +11,13 @@
 /* ---------------- 事件绑定 + 启动（仅地图首页加载） ---------------- */
 /* ---------------- 事件绑定 ---------------- */
 function bindUI() {
+  // 搜索防抖：逐字符输入会瞬间触发「全量筛选 + 列表 DOM 重建 + 地图标记重算」，
+  // 停顿 200ms 才真正执行一次，快速输入时不再逐字卡顿。
+  // q 仍即时写入 state，确保防抖窗口内切换城市/状态时联动用的是最新关键词。
+  const searchApply = debounce(() => applyFilters(), 200);
   document.getElementById('search').addEventListener('input', (e) => {
-    state.filters.q = e.target.value; applyFilters();
+    state.filters.q = e.target.value;
+    searchApply();
   });
   document.getElementById('city-select').addEventListener('change', (e) => {
     state.filters.city = e.target.value; applyFilters(); frameToCity();
