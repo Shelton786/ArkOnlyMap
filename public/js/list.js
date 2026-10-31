@@ -44,12 +44,42 @@ function visibleEvents() {
     return true;
   });
 }
+/* ---------------- 筛选状态 ↔ URL 同步 ---------------- */
+// 筛选条件（q / city / status / country）写入 URL query：
+// ① 分享链接时对方打开即带同样筛选；② 刷新页面不丢筛选。
+// 用 replaceState 不堆浏览器历史；只改这四个键，其余参数（如 ?event= 详情深链）原样保留。
+const FILTER_KEYS = ['q', 'city', 'status', 'country'];
+function syncFiltersToUrl() {
+  const params = new URLSearchParams(location.search);
+  for (const k of FILTER_KEYS) {
+    const v = (state.filters[k] || '').trim();
+    if (v) params.set(k, v); else params.delete(k);
+  }
+  const qs = params.toString();
+  history.replaceState(null, '', qs ? `${location.pathname}?${qs}` : location.pathname);
+}
+// 从 URL 恢复筛选条件。须在 loadEvents() 之前调用：renderCities/renderCountries
+// 会用 state.filters.city/country 把下拉摆回正确选项（sel.value = cur）。
+function readFiltersFromUrl() {
+  const params = new URLSearchParams(location.search);
+  for (const k of FILTER_KEYS) state.filters[k] = params.get(k) || '';
+}
+// URL 恢复后补齐其余控件状态：搜索框回填、状态下划线到对应 tab
+// （城市/国家下拉由 renderCities/renderCountries 负责）。
+function restoreFilterUI() {
+  const s = document.getElementById('search');
+  if (s) s.value = state.filters.q;
+  document.querySelectorAll('#status-tabs .tab').forEach((t) => {
+    t.classList.toggle('active', t.dataset.status === state.filters.status);
+  });
+}
 // 列表与地图标记共用同一套筛选：筛选时同步隐藏标记，避免堆叠看不清
 function applyFilters() {
   const list = sortEvents(visibleEvents());
   renderList(list);
   document.getElementById('count').textContent = `${list.length} 个活动`;
   renderMarkers(list);
+  syncFiltersToUrl();
 }
 // 列表排序：按状态分组（进行中/即将举办在上，已举办在下）；
 // 组内「即将举办/进行中」按开始日期升序（最近的在前），「已举办」按开始日期降序（最新的在前）。

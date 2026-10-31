@@ -43,6 +43,9 @@ function bindUI() {
 /* ---------------- 启动 ---------------- */
 (async function main() {
   bindUI();
+  // 筛选状态进 URL：先从地址栏恢复（须早于 loadEvents，城市/国家下拉依赖它回填），再补齐控件
+  readFiltersFromUrl();
+  restoreFilterUI();
   await loadConfig();
   await loadMe();
   await loadEvents();

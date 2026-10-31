@@ -25,7 +25,7 @@ const state = {
   markers: new Map(),
   events: [],
   user: null,
-  filters: { q: '', city: '', status: '' },
+  filters: { q: '', city: '', status: '', country: '' },
   selectedId: null,
   pickMarker: null,
 };
