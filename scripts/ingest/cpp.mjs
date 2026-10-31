@@ -29,6 +29,8 @@ import { findCityInText } from './geo.mjs';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 const DETAIL_BASE = 'https://www.allcpp.cn/allcpp/event/event.do?event=';
 const LIST_BASE = 'https://www.allcpp.cn/allcpp/event/eventMainListV2.do';
+const MOBILE_BASE = 'https://www.allcpp.cn/m/e/'; // 手机端活动页（海报更大）
+const MOBILE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15';
 const IMG_HOST = 'https://imagecdn3.allcpp.cn/upload'; // 列表 relative 海报前缀
 
 // 列表请求头（缺任何一项后端会拒，返回非 JSON）
@@ -297,6 +299,33 @@ export async function fetchDetail(eid) {
   throw lastErr;
 }
 
+/**
+ * 抓取手机端活动页（/m/e/<id>.do），提取海报大图 URL。
+ * 实测：该页仅含 1 张 imagecdn3 图片，即比电脑端（eventParam.picUrl / logoPicUrl）更大的海报。
+ * 列表接口的 appLogoPicUrl 与此完全一致，故列表模式无需额外请求；本函数供详情页/定向导入回退使用。
+ */
+export async function fetchMobilePoster(eid) {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRY; attempt++) {
+    try {
+      const res = await fetch(`${MOBILE_BASE}${eid}.do`, {
+        headers: { 'User-Agent': MOBILE_UA, 'Accept': 'text/html' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const html = await res.text();
+      const m = html.match(/https?:\/\/imagecdn3\.allcpp\.cn\/upload[^\s"'<>)]+/);
+      if (m) return m[0];
+      const rel = html.match(/\/\/imagecdn3\.allcpp\.cn\/upload[^\s"'<>)]+/);
+      if (rel) return 'https:' + rel[0];
+      return null;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < MAX_RETRY) await sleep(FETCH_DELAY_MS);
+    }
+  }
+  throw lastErr;
+}
+
 // ===========================================================================
 // 自动搜索模式（真实列表接口）
 // ===========================================================================
@@ -374,7 +403,8 @@ export function toRawRecordFromList(item, reviewStatus = 'pending') {
     district: areaName,
     venue: (item.enterAddress || '').trim() || null,
     address: (item.enterAddress || '').trim() || null,
-    poster_url: buildPoster(item.logoPicUrl || item.appLogoPicUrl),
+    // 手机端海报优先（appLogoPicUrl 即 /m/e/<id>.do 页面里的大图），缺失时回退电脑端 logoPicUrl
+    poster_url: buildPoster(item.appLogoPicUrl || item.logoPicUrl),
     tags: tags.length ? JSON.stringify(tags) : null,
     description: null,      // 列表无简介；--detail 时补全
     organizer: null,        // 列表无主办方；--detail 时补全
@@ -470,6 +500,13 @@ export async function fetchCpp(opts = {}) {
         }
         if (!rec) { failed++; console.warn(`  ✗ 无标题，跳过: [${it.eid}]`); continue; }
         rec.review_status = reviewStatus;
+        // 手机端海报优先：详情页 picUrl 是电脑端小图，改抓 /m/e/<id>.do 取大图
+        try {
+          const mp = await fetchMobilePoster(it.eid);
+          if (mp) rec.poster_url = mp;
+        } catch (e) {
+          console.warn(`  ⚠ [${it.eid}] 手机端海报获取失败，沿用详情页海报：${e.message}`);
+        }
         records.push(rec);
         fetched++;
         console.log(`  ✓ [${it.eid}] ${rec.title} ｜ ${rec.city || '城市未知'} ｜ ${rec.startDate}`);
@@ -488,5 +525,5 @@ export async function fetchCpp(opts = {}) {
 export default {
   fetchCpp, fetchSearchList, toRawRecordFromList, enrichFromDetail,
   parseListFromHtml, parseListFromText, parseListFile, parseEventParam, parseOrganizer,
-  toRawRecord, isExcluded, isExcludedByType, msToDate,
+  toRawRecord, isExcluded, isExcludedByType, msToDate, fetchMobilePoster, fetchDetail,
 };

@@ -1,0 +1,1 @@
+UPDATE conventions SET longitude=118.810761, latitude=32.08083 WHERE source='cpp' AND source_id='7579';
