@@ -411,6 +411,7 @@ export async function requestClaim(db, id, userId) {
 }
 
 // 通过认领：把活动归给「发起认领的用户」（organizer_claim_user_id），而非审核管理员。
+// 同时把认领人升级为「主办」角色——只从 user 提升，已是主办/管理员/站长则不动。
 export async function approveClaim(db, id) {
   const ev = await getEvent(db, id);
   if (!ev || ev.organizer_claim_status !== 'pending') return ev;
@@ -419,15 +420,37 @@ export async function approveClaim(db, id) {
     .prepare("UPDATE conventions SET organizer_claim_status = 'approved', organizer_user_id = ? WHERE id = ? AND organizer_claim_status = 'pending'")
     .bind(claimer, id)
     .run();
+  if (claimer != null) {
+    const u = await db.prepare('SELECT id, role FROM users WHERE id = ?').bind(claimer).first();
+    if (u && u.role === 'user') {
+      await db.prepare('UPDATE users SET role = ? WHERE id = ?').bind('organizer', claimer).run();
+    }
+  }
   return getEvent(db, id);
 }
 
 // 驳回认领：回到未认领状态，清空申请人，允许重新申请。
+// 若被驳回者因此不再拥有任何已通过的认领活动，且当前角色就是主办，则降回舟友，
+// 避免「主办」身份只增不减；管理员/站长及手动任命的主办不受影响（只降 role='organizer' 且无残余认领的）。
 export async function rejectClaim(db, id) {
+  const ev = await getEvent(db, id);
+  const claimer = ev && ev.organizer_claim_user_id != null ? ev.organizer_claim_user_id : null;
   await db
     .prepare("UPDATE conventions SET organizer_claim_status = 'none', organizer_claim_user_id = NULL WHERE id = ? AND organizer_claim_status = 'pending'")
     .bind(id)
     .run();
+  if (claimer != null) {
+    const u = await db.prepare('SELECT id, role FROM users WHERE id = ?').bind(claimer).first();
+    if (u && u.role === 'organizer') {
+      const left = await db
+        .prepare("SELECT COUNT(*) AS n FROM conventions WHERE organizer_user_id = ? AND organizer_claim_status = 'approved'")
+        .bind(claimer)
+        .first();
+      if (!left || Number(left.n) === 0) {
+        await db.prepare('UPDATE users SET role = ? WHERE id = ?').bind('user', claimer).run();
+      }
+    }
+  }
   return getEvent(db, id);
 }
 
