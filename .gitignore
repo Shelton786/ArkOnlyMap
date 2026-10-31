@@ -13,3 +13,14 @@ tmp/
 # ingest 一次性导出 / 中间产物（勿入库）：全量导出、regeo 校验结果、手工补坐标清单等
 scripts/ingest/data/*.json
 
+# 本地会话日志 / 操作记录（勿入库）：部署记录、git 操作留痕、语法检查输出、提交信息草稿等
+data/*.txt
+
+# ingest 调试临时文件（勿入库）：_ 开头的一次性脚本、逆向页面 dump、排错中间输出
+scripts/ingest/_*
+scripts/ingest/data/_*
+
+# ingest 巡检流水线输出（勿入库）：库导出、查重/验证结果、stderr 捕获
+scripts/ingest/data/*.txt
+scripts/ingest/data/*.err
+
