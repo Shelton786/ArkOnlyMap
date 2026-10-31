@@ -98,28 +98,6 @@
   </style>
   <script src="/js/csrf.js"></script>
   <script src="/js/parallax.js" defer></script>
-  <script>
-    // 更新日志折叠：默认只显示最新一条；展开状态记 localStorage，下次访问保持偏好
-    (function () {
-      var btn = document.getElementById('cl-toggle');
-      if (!btn) return;
-      var old = document.querySelectorAll('#changelog-card .cl-old');
-      var KEY = 'about-changelog-expanded';
-      function apply(expanded) {
-        document.body.classList.toggle('cl-expanded', expanded);
-        btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        btn.textContent = expanded ? '收起日志 ▲' : '展开全部 (' + old.length + ') ▼';
-      }
-      var saved = false;
-      try { saved = localStorage.getItem(KEY) === '1'; } catch (e) {}
-      apply(saved);
-      btn.addEventListener('click', function () {
-        var next = !document.body.classList.contains('cl-expanded');
-        apply(next);
-        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (e) {}
-      });
-    })();
-  </script>
 </head>
 <body>
   <!-- 背景图：固定不随内容滚动 -->
@@ -267,5 +245,29 @@
       </div>
     </div>
   </div>
+
+  <script>
+    // 更新日志折叠：默认只显示最新一条；展开状态记 localStorage，下次访问保持偏好
+    // 注意：必须在 body 末尾执行——head 同步脚本运行时按钮还没解析，getElementById 会拿到 null
+    (function () {
+      var btn = document.getElementById('cl-toggle');
+      if (!btn) return;
+      var old = document.querySelectorAll('#changelog-card .cl-old');
+      var KEY = 'about-changelog-expanded';
+      function apply(expanded) {
+        document.body.classList.toggle('cl-expanded', expanded);
+        btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        btn.textContent = expanded ? '收起日志 ▲' : '展开全部 (' + old.length + ') ▼';
+      }
+      var saved = false;
+      try { saved = localStorage.getItem(KEY) === '1'; } catch (e) {}
+      apply(saved);
+      btn.addEventListener('click', function () {
+        var next = !document.body.classList.contains('cl-expanded');
+        apply(next);
+        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (e) {}
+      });
+    })();
+  </script>
 </body>
 </html>
