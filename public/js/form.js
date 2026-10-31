@@ -29,6 +29,31 @@ async function deleteEvent(id) {
   loadEvents();
 }
 
+// 省份回填匹配：库内 province 历史两种写法并存（「江苏」/「江苏省」/「广西壮族自治区」），
+// 而 PROVINCE_CITIES 的 key 是全称。精确匹配失配时下拉不会选中任何项，浏览器回退到
+// 首个选项（北京市），表现为「编辑时省份城市老是显示北京」。这里做去后缀归一匹配。
+function matchProvinceKey(raw) {
+  if (!raw) return '';
+  const keys = Object.keys(PROVINCE_CITIES);
+  if (keys.includes(raw)) return raw;
+  const norm = (s) => String(s).replace(/(壮族自治区|回族自治区|维吾尔自治区|特别行政区|自治区|省|市)$/, '');
+  const n = norm(raw);
+  return keys.find((k) => norm(k) === n) || '';
+}
+
+// 按省份生成城市下拉选项；库内城市不在列表（小众县级市等）时追加为选中项，
+// 避免回填丢失、保存时被静默改成列表首个城市。
+function buildCityOptions(provKey, curCity) {
+  const cities = (provKey && PROVINCE_CITIES[provKey]) || [];
+  if (!cities.length) return '';
+  const opts = cities
+    .map((c) => `<option value="${esc(c)}" ${curCity === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  if (curCity && !cities.includes(curCity)) {
+    return `${opts}<option value="${esc(curCity)}" selected>${esc(curCity)}</option>`;
+  }
+  return opts;
+}
+
 function openForm(ev, opts = {}) {
   const isEdit = !!ev && !opts.supplementOf;
   const sup = opts.supplementOf || null;
@@ -39,14 +64,10 @@ function openForm(ev, opts = {}) {
   const v = (k) => (src && src[k] != null ? src[k] : '');
   const tagsVal = src && Array.isArray(src.tags) ? src.tags.join('、') : '';
   const startVal = src ? (src.start_date || '') : '';
-  const curProv = v('province');
+  const curProv = matchProvinceKey(v('province'));
   const provinceOptions = Object.keys(PROVINCE_CITIES)
     .map((p) => `<option value="${esc(p)}" ${curProv === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
-  let cityOptions = '';
-  if (curProv && PROVINCE_CITIES[curProv]) {
-    cityOptions = PROVINCE_CITIES[curProv]
-      .map((c) => `<option value="${esc(c)}" ${v('city') === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
-  }
+  const cityOptions = curProv ? buildCityOptions(curProv, v('city')) : '';
   const hasCoord = src && src.longitude != null;
   const curCountry = v('country') || '中国';
   const countryVal = COUNTRY_LIST.includes(curCountry) ? curCountry : '其他';
@@ -157,9 +178,14 @@ function wireCitySelect() {
   const fill = () => {
     const prev = c.value;
     const cities = PROVINCE_CITIES[p.value] || [];
-    c.innerHTML = cities.length
+    let opts = cities.length
       ? cities.map((ci) => `<option value="${esc(ci)}">${esc(ci)}</option>`).join('')
       : '<option value="">（该省暂无列表）</option>';
+    // prev 不在新列表（编辑预填的小众城市）时保留为选项，防止保存时静默丢值
+    if (prev && cities.length && !cities.includes(prev)) {
+      opts += `<option value="${esc(prev)}" selected>${esc(prev)}</option>`;
+    }
+    c.innerHTML = opts;
     if ([...c.options].some((o) => o.value === prev)) c.value = prev;
   };
   p.addEventListener('change', fill);
