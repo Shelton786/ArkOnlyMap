@@ -29,3 +29,7 @@ scripts/ingest/data/*.err
 # ingest 生成的待执行 SQL（勿入库）：bili_import.sql / ingest_batch.sql / geocode_auto.sql 等中间产物
 scripts/ingest/data/*.sql
 
+# 用户浏览器保存的原始页面 + 商城海报暂存（勿入库）：体积大且可从源站重新获取
+b站个人抓取/
+scripts/ingest/data/mall_posters/
+
