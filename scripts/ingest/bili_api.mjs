@@ -71,10 +71,63 @@ export function normalizeRegion(name) {
     .trim() || null;
 }
 
-/** 逗号/空格分隔的关键词 → 数组。 */
-function parseKeywords(kw) {
+/** 逗号/空格分隔的关键词 → 数组；滤掉「城市null」类垃圾 token 与标题本身。 */
+function parseKeywords(kw, title = '') {
   if (!kw) return [];
-  return kw.split(/[,，\s]+/).map((s) => s.trim()).filter(Boolean);
+  if (Array.isArray(kw)) {
+    // 数组形态（[{name:...}] 或字符串数组）都兼容
+    return kw.map((k) => (typeof k === 'string' ? k : (k && (k.name || k.keyword)) || '')).map((s) => s.trim()).filter(Boolean);
+  }
+  return kw
+    .split(/[,，\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s && !s.includes('null') && s !== title);
+}
+
+/** HTML → 纯文本（去标签/实体，压空白）。 */
+function htmlToText(html) {
+  if (!html || typeof html !== 'string') return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * 提取活动简介。优先 performance_desc.list 模块化内容（新老 ID 都是这个结构）：
+ *   activity_content=主办方宣传图文；custom=票种说明等；base_info=日期/地址/入场规则结构化条目。
+ * description 字段是「bilibili会员购票务xxx:标题」模板废词，直接丢弃。
+ */
+function extractDescription(data) {
+  const pd = data.performance_desc;
+  const parts = [];
+  if (typeof pd === 'string' && pd.trim() && !/^bilibili会员购票务/.test(pd.trim())) {
+    parts.push(htmlToText(pd));
+  } else if (pd && typeof pd === 'object' && Array.isArray(pd.list)) {
+    for (const mod of pd.list) {
+      if (!mod) continue;
+      if (typeof mod.details === 'string') {
+        const t = htmlToText(mod.details);
+        if (t) parts.push(mod.module_name ? `${mod.module_name}：${t}` : t);
+      } else if (Array.isArray(mod.details)) {
+        for (const item of mod.details) {
+          if (item && typeof item === 'object' && item.title) {
+            const t = htmlToText(String(item.content || ''));
+            if (t) parts.push(`${item.title}：${t}`);
+          }
+        }
+      }
+    }
+  }
+  const text = parts.join('\n').trim();
+  // 与标题完全一致的废词不算简介
+  if (!text || text === (data.name || '').trim()) return null;
+  return text.slice(0, 1500);
 }
 
 // ===========================================================================
@@ -118,12 +171,11 @@ export function toRawRecordFromDetail(data, { keyword, reviewStatus = 'pending' 
 
   const address = [venue.address_detail, place.name].filter(Boolean).join(' ').trim() || null;
 
-  const kwTags = parseKeywords(data.keywords);
-  const tagsRaw = data.tags ? parseKeywords(data.tags) : [];
+  const kwTags = parseKeywords(data.keywords, title);
+  const tagsRaw = data.tags ? parseKeywords(data.tags, title) : [];
   const tags = [...new Set([...kwTags, ...tagsRaw])];
 
-  let description = (data.description || '').trim();
-  if (data.performance_desc) description += (description ? '\n' : '') + data.performance_desc;
+  const description = extractDescription(data);
 
   return {
     title,
