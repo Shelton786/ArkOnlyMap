@@ -34,7 +34,7 @@ function normTitle(t) {
     .replace(/only|同人|展|only1|第一届|第1届/g, '')
     .replace(/\d+(\.\d+)?/g, '');
 }
-function normCity(c) { return (c || '').replace(/[市省自治区壮族回族维吾尔特别行政区]/g, ''); }
+function normCity(c) { return (c || '').replace(/(特别行政区|壮族回族自治区|维吾尔自治区|自治区|省|市)$/, ''); }
 function daysDiff(a, b) {
   if (!a || !b) return 999;
   return Math.abs((new Date(a) - new Date(b)) / 86400000);
