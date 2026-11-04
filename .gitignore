@@ -33,3 +33,6 @@ scripts/ingest/data/*.sql
 b站个人抓取/
 scripts/ingest/data/mall_posters/
 
+# 根目录一次性临时文件（勿入库）：_ 开头的验证输出落盘、提交信息草稿、探测脚本等
+/_*
+

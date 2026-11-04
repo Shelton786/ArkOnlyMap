@@ -1,7 +1,0 @@
-﻿docs(license): 开源协议从 GPL-3.0 切换为 AGPL-3.0
-
-- LICENSE.txt 替换为 GNU 官方 AGPL-3.0 全文（Version 3, 19 November 2007）
-- 21 个源码文件头 SPDX 标识与标准声明改为 AGPL-3.0-or-later
-- README 协议章节、package.json license 字段（原 ISC 与 LICENSE 不一致，顺手统一）、about.html/404.html 页脚同步更新
-- AGPL 相对 GPL 的关键差异：通过网络向他人提供交互服务也须开源完整对应源代码
-
