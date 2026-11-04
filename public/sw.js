@@ -1,7 +1,7 @@
 /*
  * ArkOnlyMap —— 舟友同好集会地图
  * Copyright © 2026 Booker786
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Service Worker：PWA 离线可用 + 静态资源加速。
  * 缓存策略（关键约束：活动数据必须新鲜，任何接口响应都不进缓存）：

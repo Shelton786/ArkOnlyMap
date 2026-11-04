@@ -6,7 +6,7 @@
 
 地图：高德地图 JS API ｜🌐 线上演示：[arkonlymap.pages.dev](https://arkonlymap.pages.dev/)
 
-📄 开源协议：[GPL-3.0](./LICENSE.txt) © 2026 Booker786
+📄 开源协议：[AGPL-3.0](./LICENSE.txt) © 2026 Booker786
 
 ---
 
@@ -397,10 +397,10 @@ Node 自托管形态（`server/`）则用 `.env` 文件：`PORT`、`SESSION_SECR
 
 ## 📄 许可证
 
-本项目以 **GNU General Public License v3.0（GPL-3.0）** 开源。
+本项目以 **GNU Affero General Public License v3.0（AGPL-3.0）** 开源。
 
 - 许可证全文：[LICENSE.txt](./LICENSE.txt)
-- SPDX 标识：`GPL-3.0-or-later`
+- SPDX 标识：`AGPL-3.0-or-later`
 - 版权：Copyright © 2026 Booker786
 
-在 GPLv3 条款下，可自由使用、研究、修改和分发本项目的源代码；若分发**修改后的版本**，须同样以 GPLv3 开源。
+在 AGPLv3 条款下，可自由使用、研究、修改和分发本项目的源代码；若分发**修改后的版本**，或**通过服务器向他人提供本程序的交互服务**，须同样以 AGPLv3 开源并提供完整对应源代码。

@@ -1,7 +1,7 @@
 /*
  * ArkOnlyMap —— 舟友同好集会地图
  * Copyright © 2026 Booker786
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * 本文件由 app.js 拆分而来（2026.8.8），为经典脚本：
  * 依赖更早加载的 js/core.js 提供的全局绑定（state / esc / api 等）。
