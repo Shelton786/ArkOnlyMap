@@ -51,7 +51,7 @@
         .av-opt img { width:100%; height:100%; object-fit:cover; display:block; }
       </style>
       <div class="av-modal">
-        <div style="font-family:'Noto Serif SC',serif;color:#fff;font-size:17px;margin-bottom:4px;">更换头像</div>
+        <div style="font-family:'Noto Sans SC',sans-serif;font-weight:700;color:#fff;font-size:17px;margin-bottom:4px;">更换头像</div>
         <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">仅支持森空岛 CDN 头像</div>
         <div class="av-grid">${galleryHtml}</div>
         <div style="font-size:13px;color:var(--text-dim);margin-bottom:6px;">或粘贴森空岛头像链接</div>

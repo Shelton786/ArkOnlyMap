@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
   <title>管理后台 · 舟友同好集会地图</title>
-  <!-- 字体：jsdelivr 托管的 fontsource 分包（unicode-range 按需切片，国内可访问） -->
+  <!-- 字体：自托管可变字体（Saira + Noto Sans SC，unicode-range 按需切片；许可证见 /fonts/*/LICENSE.txt） -->
   <meta name="robots" content="noindex" />
   <meta name="description" content="站内审核与用户管理。" />
   <meta property="og:type" content="website" />
@@ -14,16 +14,7 @@
   <meta property="og:image" content="https://arkonlymap.pages.dev/about-bg.jpg" />
   <meta property="og:url" content="https://arkonlymap.pages.dev/admin.html" />
   <meta name="twitter:card" content="summary_large_image" />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5/500.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5/700.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5/900.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/400.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/500.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/700.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/400.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/500.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/700.css" />
+  <link rel="stylesheet" href="/css/fonts.css" />
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <style>
@@ -50,7 +41,7 @@
     }
     .admin-brand { display: flex; align-items: baseline; gap: 10px; }
     .admin-title {
-      font-family: 'Noto Serif SC', serif;
+      font-family: 'Noto Sans SC', sans-serif;
       font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #fff;
     }
     .admin-body {
@@ -72,7 +63,7 @@
     .ua-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
       padding: 10px 0; border-bottom: 1px dashed var(--line-soft); font-size: 14px; }
     .ua-name { color: var(--text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .ua-name small { color: var(--text-mute); font-family: 'Roboto', monospace; }
+    .ua-name small { color: var(--text-mute); font-family: 'Saira', monospace; }
     .ua-role { min-width: 110px; }
     .badge--pending { color: #ffcf6b; border-color: #ffcf6b; }
     .badge--supplement { color: #74b9ff; border-color: #74b9ff; }

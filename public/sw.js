@@ -9,19 +9,21 @@
  *   2. /api/ 接口 → network-only，离线时由页面 toast 提示；
  *   3. 页面导航（navigate）→ network-first，失败回落缓存的首页；
  *   4. 同源静态资源（js/css/图片）→ stale-while-revalidate，先读缓存再后台更新；
- *   5. 跨域资源（jsdelivr 字体、高德地图 SDK）→ 不缓存，直接走网络。
+ *   5. 跨域资源（高德地图 SDK）→ 不缓存，直接走网络。
+ *   注：字体已自托管（/fonts/），属同源静态资源，走第 4 条 SWR 缓存。
  */
 'use strict';
 
 // 版本号约定：每次修改 APP_SHELL 中的 js/css 都要 +1。
 // 静态资源是 stale-while-revalidate，不 bump 的话老访客会先吃到旧缓存脚本，
 // 要刷新两次才看到新逻辑；bump 后 activate 会清掉旧缓存并重新预缓存新文件。
-const CACHE = 'arkonlymap-v2';
+const CACHE = 'arkonlymap-v3';
 // App shell：预缓存保证离线首访即可打开（图标/字体等大文件不预缓存，按需 SWR）
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
   '/css/style.css',
+  '/css/fonts.css',
   '/js/csrf.js',
   '/js/core.js',
   '/js/modal.js',

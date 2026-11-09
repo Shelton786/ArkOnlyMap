@@ -92,6 +92,7 @@ function renderPage(ev) {
   <meta property="og:url" content="${SITE}/event/${ev.id}" />
   ${poster ? `<meta property="og:image" content="${esc(poster)}" />` : ''}
   <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/fonts.css" />
   <link rel="stylesheet" href="/css/style.css" />
   <script type="application/ld+json">${jsonLd(ld)}</script>
 </head>
@@ -130,6 +131,7 @@ const NOT_FOUND = `<!DOCTYPE html>
   <meta name="robots" content="noindex, follow" />
   <meta name="theme-color" content="#070b16" />
   <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/fonts.css" />
   <link rel="stylesheet" href="/css/style.css" />
   <style>
     html, body { position: static !important; height: auto !important; overflow-y: auto !important; }
@@ -142,11 +144,11 @@ const NOT_FOUND = `<!DOCTYPE html>
       padding: 44px 28px 36px;
     }
     .nf-code {
-      font-family: 'Roboto', monospace; font-size: 72px; font-weight: 700; line-height: 1;
+      font-family: 'Saira', monospace; font-stretch: 112%; font-variant-numeric: tabular-nums; font-size: 72px; font-weight: 700; line-height: 1;
       background: linear-gradient(90deg, #fff, var(--ak-primary));
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-    .nf-card h1 { font-family: 'Noto Serif SC', serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 16px 0 8px; }
+    .nf-card h1 { font-family: 'Noto Sans SC', sans-serif; font-size: 20px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 16px 0 8px; }
     .nf-tip { color: var(--text-dim); font-size: 13px; line-height: 1.9; margin: 0 0 24px; }
     .nf-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
     .nf-actions .ak-btn { text-decoration: none; height: 36px; padding: 0 20px; font-size: 13px; }

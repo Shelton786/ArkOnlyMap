@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
   <title>关于 · 舟友同好集会地图</title>
-  <!-- 字体：jsdelivr 托管的 fontsource 分包（unicode-range 按需切片，国内可访问） -->
+  <!-- 字体：自托管可变字体（Saira + Noto Sans SC，unicode-range 按需切片；许可证见 /fonts/*/LICENSE.txt） -->
   <meta name="description" content="关于本站：数据说明、更新日志与友情链接。" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="舟友同好集会地图" />
@@ -13,16 +13,7 @@
   <meta property="og:image" content="https://arkonlymap.pages.dev/about-bg.jpg" />
   <meta property="og:url" content="https://arkonlymap.pages.dev/about.html" />
   <meta name="twitter:card" content="summary_large_image" />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5/500.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5/700.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-serif-sc@5/900.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/400.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/500.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5/700.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/400.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/500.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@5/700.css" />
+  <link rel="stylesheet" href="/css/fonts.css" />
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <style>
@@ -51,12 +42,12 @@
       border-bottom: 1px solid var(--line); backdrop-filter: blur(8px);
     }
     .about-brand { display: flex; align-items: baseline; gap: 10px; }
-    .about-title { font-family: 'Noto Serif SC', serif; font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #fff; }
+    .about-title { font-family: 'Noto Sans SC', sans-serif; font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #fff; }
     .about-body {
       flex: 1; padding: 80px 20px 60px; max-width: 760px; width: 100%; margin: 0 auto; box-sizing: border-box;
     }
     .about-hero { text-align: center; margin-bottom: 36px; }
-    .about-hero h1 { font-family: 'Noto Serif SC', serif; font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 0 0 10px; }
+    .about-hero h1 { font-family: 'Noto Sans SC', sans-serif; font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 3px; margin: 0 0 10px; }
     .about-hero p { color: var(--text-dim); font-size: 15px; line-height: 1.8; max-width: 560px; margin: 0 auto; }
     .about-card {
       background: linear-gradient(180deg, rgba(18,32,66,0.95), rgba(7,11,22,0.95));
@@ -65,7 +56,7 @@
       padding: 24px 26px 28px; margin-bottom: 24px;
     }
     .about-card h2 {
-      font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 700; color: #fff;
+      font-family: 'Noto Sans SC', sans-serif; font-size: 18px; font-weight: 700; color: #fff;
       margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft);
     }
     .about-card ul, .about-card ol { margin: 0; padding-left: 20px; color: var(--text-dim); font-size: 14px; line-height: 2; }
@@ -173,7 +164,8 @@
       <section class="about-card" id="changelog-card" aria-label="更新日志">
         <h2>更新日志<button type="button" class="ak-btn ak-btn--ghost ak-btn--sm" id="cl-toggle" aria-expanded="false">展开全部</button></h2>
         <div class="changelog">
-          <p><span class="ver">2026.10.31</span> 搜索输入加入防抖，快速打字不再卡顿；筛选条件写入网址，刷新不丢失，分享链接可复现相同筛选。每个活动新增独立详情页（/event/&lt;id&gt;）并配套动态 sitemap 与结构化数据，搜索引擎可收录集会的时间地点；全站支持安装为应用（PWA），断网也能打开首页；新增自定义 404 页面；关于页更新日志改为默认折叠、点击展开。修复若干问题：批准主办认领后用户身份未切换为主办、编辑活动时省份和城市总显示北京、已认领主办名称无法跳转个人主页（现与提交者一样可点击）；并补全个别活动缺失的坐标，修正区县填错、主办挂错人的数据。</p>
+          <p><span class="ver">2026.11.9</span> 字体改为全站自托管，不再依赖 jsdelivr CDN（部分地区连接失败导致首屏变慢的问题彻底解决）：中文统一为思源黑体（Noto Sans SC 可变字体），数字与英文标签换用宽体几何字体 Saira，标题从衬线宋体改为粗黑体，整体更贴近终末地工业风；字体按 unicode-range 切片按需加载，并纳入 Service Worker 缓存，许可证随附于 /fonts/ 目录。</p>
+          <p class="cl-old"><span class="ver">2026.10.31</span> 搜索输入加入防抖，快速打字不再卡顿；筛选条件写入网址，刷新不丢失，分享链接可复现相同筛选。每个活动新增独立详情页（/event/&lt;id&gt;）并配套动态 sitemap 与结构化数据，搜索引擎可收录集会的时间地点；全站支持安装为应用（PWA），断网也能打开首页；新增自定义 404 页面；关于页更新日志改为默认折叠、点击展开。修复若干问题：批准主办认领后用户身份未切换为主办、编辑活动时省份和城市总显示北京、已认领主办名称无法跳转个人主页（现与提交者一样可点击）；并补全个别活动缺失的坐标，修正区县填错、主办挂错人的数据。</p>
           <p class="cl-old"><span class="ver">2026.8.27</span> 修复管理员审核时看不到补充信息的问题：审核队列中的「补充」条目现按字段展示与原活动的差异（旧值 → 新值）。新增订阅功能：RSS 源（新收录活动自动推送，/feed.xml）与日历订阅（未结束活动直接进入系统日历，/feed.ics），关于页新增订阅入口。新增 robots.txt 与 sitemap.xml，开放搜索引擎收录；列表卡片新增 hover 扫光动画，顶栏 logo 由字符 ◆ 升级为双层菱形 SVG 标记；全站页面补齐 OGP / Twitter Card 分享元信息，链接贴到 QQ、微信、X 等平台时将显示标题、简介与封面卡片；账户与管理页标记为不收录。</p>
           <p class="cl-old"><span class="ver">2026.8.21</span> 登录接口新增限流保护：同一 IP+账号连续失败 10 次将临时锁定 15 分钟，防止暴力破解。数据治理：38 条国家字段为空的历史活动已归一化为「中国」，提交与采集管道均已加缺省值，防止复发。视觉收尾：活动计数升级为等宽大数字 + 硬阴影终端风，列表状态徽章改深灰实色块配状态色文字，关于 / 账户 / 主页背景图加入鼠标视差微动。字体加载改为 jsdelivr 托管的 fontsource 分包（unicode-range 按需切片，国内可访问），并补强系统字体兜底链，解决部分地区首屏字体加载慢 / 失败的问题；明日方舟衬线标题风格保持不变。视觉升级：全站叠加 PRTS 终端蓝图网格背景，详情面板加角落括线，状态筛选改为斜切平行四边形 + 激活发光，计数与日期启用等宽数字终端风，面板补充大写英文装饰行。</p>
           <p class="cl-old"><span class="ver">2026.8.15</span>（补充）点聚合功能上线后因观感不佳已回滚，地图恢复为逐活动标记展示；修复详情页海报被裁切只显示一条的问题，现完整显示（超高图限高 360px）。</p>

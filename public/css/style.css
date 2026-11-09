@@ -32,7 +32,7 @@ html, body {
 }
 
 body {
-  font-family: 'Noto Sans SC', 'Roboto', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  font-family: 'Noto Sans SC', 'Saira', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
   color: var(--text);
   /* PRTS 终端蓝图网格：细线坐标纸 + 原有氛围光 */
   background:
@@ -46,7 +46,8 @@ body {
 }
 
 .serif, .brand-title, .detail-title, .modal-title, h1, h2, h3 {
-  font-family: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', serif;
+  /* 终末地风格：标题用粗黑体（不用衬线宋体），字重由各处 700/900 提供 */
+  font-family: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
 }
 
 /* ---------------- 顶栏 ---------------- */
@@ -156,7 +157,8 @@ body {
 .sidebar-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--line-soft); }
 /* 侧栏顶部装饰性英文行（游戏面板风格） */
 .deco-en {
-  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-family: 'Saira', 'Noto Sans SC', monospace;
+  font-stretch: 125%; /* 宽体大写小标签（Saira 可变宽度轴） */
   font-size: 9px; letter-spacing: 2.5px; color: var(--text-mute);
   opacity: .7; margin-bottom: 8px; user-select: none;
 }
@@ -188,7 +190,8 @@ body {
 /* 等宽终端大数字：硬阴影错位（游戏主界面「理智」风格） */
 .count {
   font-size: 16px; font-weight: 700; color: var(--text); white-space: nowrap;
-  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-family: 'Saira', 'Noto Sans SC', monospace;
+  font-stretch: 112%; /* 宽体数字字段 */
   font-variant-numeric: tabular-nums; letter-spacing: .5px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.6);
 }
@@ -329,7 +332,8 @@ body {
 .detail-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; padding-right: 24px; }
 .detail-sub {
   font-size: 12px; color: var(--text-mute); margin-bottom: 14px; letter-spacing: 1px;
-  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-family: 'Saira', 'Noto Sans SC', monospace;
+  font-stretch: 112%;
   font-variant-numeric: tabular-nums;
 }
 .detail-rows { font-size: 13px; line-height: 2; }
@@ -362,7 +366,8 @@ body {
 .modal-title::after {
   content: '// TERMINAL ACCESS — RHODES ISLAND';
   display: block; margin-top: 3px;
-  font-family: 'Roboto', 'Noto Sans SC', monospace;
+  font-family: 'Saira', 'Noto Sans SC', monospace;
+  font-stretch: 125%;
   font-size: 10px; font-weight: 400; letter-spacing: 2px;
   color: var(--text-mute); opacity: .75;
 }
@@ -530,7 +535,7 @@ body {
 .ac-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line-soft); font-size: 13px; }
 .ac-row .k { color: var(--text-mute); width: 56px; flex-shrink: 0; }
 .ac-row .v { color: var(--text); flex: 1; word-break: break-word; }
-.ac-row .v.amid { font-family: 'Roboto', monospace; color: var(--ak-primary); letter-spacing: 1px; }
+.ac-row .v.amid { font-family: 'Saira', monospace; font-stretch: 112%; font-variant-numeric: tabular-nums; color: var(--ak-primary); letter-spacing: 1px; }
 .ac-sep { border: none; border-top: 1px solid var(--line-soft); margin: 16px 0; }
 .ac-section-title { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
 .ac-binds { display: flex; flex-direction: column; gap: 10px; }
@@ -552,7 +557,7 @@ body {
 .user-admin-list { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
 .ua-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
 .ua-name { color: var(--text); }
-.ua-name small { color: var(--text-mute); margin-left: 6px; font-family: 'Roboto', monospace; }
+.ua-name small { color: var(--text-mute); margin-left: 6px; font-family: 'Saira', monospace; font-stretch: 112%; }
 .ua-role {
   height: 32px; padding: 0 8px; background: rgba(7,11,22,0.6); color: var(--text);
   border: 1px solid var(--line-soft); border-radius: var(--radius); font-size: 13px; outline: none;
