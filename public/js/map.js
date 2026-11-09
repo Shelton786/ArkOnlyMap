@@ -71,13 +71,20 @@ function markerHtml(ev) {
       <span class="pin"></span>
     </div>`;
 }
-const MARKER_Z = { upcoming: 300, ongoing: 300, past: 100, unknown: 100 };
+// 标记层级：进行中 > 即将举办 > 已结束 / 未知；点选的活动永远置顶。
+// 高德在 zIndex 相同时按添加顺序叠放，同城/同场馆的活动坐标常常重合，
+// 若级别相同，后绘制的蓝点（即将举办）就会盖住黄点（进行中），故状态间必须错开数值。
+const MARKER_Z = { upcoming: 300, ongoing: 350, past: 100, unknown: 100 };
+const SELECTED_Z = 400;
+function markerZ(ev) {
+  return ev.id === state.selectedId ? SELECTED_Z : (MARKER_Z[ev.status] || 100);
+}
 function addMarker(ev) {
   if (ev.longitude == null || ev.latitude == null) return;
   const marker = new AMap.Marker({
     position: [ev.longitude, ev.latitude],
     content: markerHtml(ev), anchor: 'center',
-    zIndex: ev.id === state.selectedId ? 400 : (MARKER_Z[ev.status] || 100),
+    zIndex: markerZ(ev),
   });
   marker.on('click', () => { openDetail(ev); });
   marker.setMap(state.map);
@@ -135,7 +142,10 @@ function renderMarkers(list) {
   const items = (list && list.length !== undefined) ? list : state.events;
   for (const m of state.markers.values()) m.setMap(null);
   state.markers.clear();
-  for (const ev of items) {
+  // 层级由低到高添加：高优先级的标记最后绘制，即使地图引擎按 DOM 顺序叠放也能保证
+  // 进行中(黄) 压住 即将举办(蓝)，点选的活动压住所有标记。
+  const ordered = [...items].sort((a, b) => markerZ(a) - markerZ(b));
+  for (const ev of ordered) {
     if (ev.longitude != null && ev.latitude != null) addMarker(ev);
   }
   // 缺坐标的活动：在浏览器端顺序地理编码（带间隔，避免限流），登录用户自动回写
