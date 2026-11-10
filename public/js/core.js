@@ -20,7 +20,7 @@
 /* 舟友同好集会地图 —— 前端逻辑 */
 
 const state = {
-  config: { title: '舟友同好集会地图', amapKey: '', amapSecurityCode: '', geocodeEnabled: false },
+  config: { title: '舟友同好集会地图', amapKey: '', geocodeEnabled: false },
   map: null,
   markers: new Map(),
   events: [],

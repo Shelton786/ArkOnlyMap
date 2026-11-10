@@ -24,7 +24,9 @@ function loadAmap() {
         '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#6e82a3;font-size:14px;text-align:center;padding:30px;">地图需在服务端配置高德 Key 后显示<br/>列表与提交功能不受影响</div>';
       resolve(false); return;
     }
-    window._AMapSecurityConfig = { securityJsCode: state.config.amapSecurityCode };
+    // 安全密钥代理模式（高德官方推荐）：前端只指向本站代理，
+    // jscode 由 functions/_AMapService 在服务端附加，安全密钥绝不下发浏览器。
+    window._AMapSecurityConfig = { serviceHost: `${location.origin}/_AMapService` };
     const s = document.createElement('script');
     s.src = `https://webapi.amap.com/maps?v=2.0&key=${state.config.amapKey}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geocoder,AMap.AutoComplete`;
     s.onload = () => resolve(true);

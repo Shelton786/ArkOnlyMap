@@ -38,9 +38,10 @@ const APP_TITLE = process.env.APP_TITLE || '舟友同好集会地图';
 const AMAP_KEY = process.env.AMAP_KEY || '';
 const AMAP_SECURITY = process.env.AMAP_SECURITY_CODE || '';
 
-// 暴露给前端的最小配置（高德 Key 本就需在浏览器使用）
+// 暴露给前端的最小配置（高德 Key 本就需在浏览器使用）。
+// AMAP_SECURITY_CODE 绝不下发：前端走 /_AMapService 代理，安全密钥由服务端附加。
 app.get('/api/config', (req, res) => {
-  res.json({ title: APP_TITLE, amapKey: AMAP_KEY, amapSecurityCode: AMAP_SECURITY, geocodeEnabled: hasKey() });
+  res.json({ title: APP_TITLE, amapKey: AMAP_KEY, geocodeEnabled: hasKey() });
 });
 
 app.get('/api/stats', (req, res) => {
@@ -188,6 +189,40 @@ app.post('/api/admin/geocode-missing', auth.requireAdmin, async (req, res) => {
     }
   }
   res.json({ scanned: rows.length, geocoded: done });
+});
+
+// ---------------- 高德安全密钥代理 ----------------
+// 与 Cloudflare Pages functions/_AMapService/[[path]].js 等价：前端只设 serviceHost
+// 指向本站 /_AMapService，jscode 由服务端附加后转发 restapi.amap.com，绝不下发浏览器。
+// 仅放行已加载插件（Geocoder / AutoComplete）用到的端点，防止被当成开放代理刷配额。
+const AMAP_PROXY_ALLOWED = new Set(['/v3/geocode/geo', '/v3/geocode/regeo', '/v3/assistant/inputtips']);
+app.use('/_AMapService', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.method !== 'GET') return res.status(405).json({ status: '0', info: 'METHOD_NOT_ALLOWED' });
+  // 从 originalUrl 稳健拆出子路径与原始 query（不依赖 Express 挂载行为）
+  const full = req.originalUrl;
+  const qIdx = full.indexOf('?');
+  const subPath = (qIdx === -1 ? full : full.slice(0, qIdx)).replace(/^\/_AMapService/, '');
+  const qs = qIdx === -1 ? '' : full.slice(qIdx + 1);
+  // SDK 遥测（/v3/log/*）本地回 JSONP ack，不转发上游、不发密钥；callback 严格校验防 XSS
+  if (subPath.startsWith('/v3/log/')) {
+    const cb = req.query.callback;
+    res.type('application/javascript');
+    return res.send(typeof cb === 'string' && /^[\w.$]+$/.test(cb) ? `${cb}({"status":"1"})` : '{"status":"1"}');
+  }
+  if (!AMAP_PROXY_ALLOWED.has(subPath)) return res.status(404).json({ status: '0', info: 'NOT_FOUND' });
+  if (!AMAP_SECURITY) return res.status(503).json({ status: '0', info: 'SECURITY_CODE_NOT_CONFIGURED' });
+  const target = new URL('https://restapi.amap.com' + subPath + (qs ? '?' + qs : ''));
+  target.searchParams.set('jscode', AMAP_SECURITY);
+  try {
+    const upstream = await fetch(target.toString());
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.status(upstream.status);
+    res.set('Content-Type', upstream.headers.get('Content-Type') || 'application/json; charset=utf-8');
+    return res.send(buf);
+  } catch (e) {
+    return res.status(502).json({ status: '0', info: 'UPSTREAM_FETCH_FAILED' });
+  }
 });
 
 // 静态资源

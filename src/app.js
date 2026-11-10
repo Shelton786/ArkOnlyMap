@@ -38,13 +38,13 @@ export function createApp() {
 
   const APP_TITLE = '舟友同好集会地图';
 
-  // 暴露给前端的最小配置
+  // 暴露给前端的最小配置。AMAP_SECURITY_CODE 绝不下发：
+  // 前端走 /_AMapService 代理，安全密钥由服务端附加（functions/_AMapService/[[path]].js）。
   app.get('/api/config', (c) => {
     const env = c.env;
     return c.json({
       title: APP_TITLE,
       amapKey: env.AMAP_KEY || '',
-      amapSecurityCode: env.AMAP_SECURITY_CODE || '',
       geocodeEnabled: hasKey(env),
     });
   });

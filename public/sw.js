@@ -6,7 +6,7 @@
  * Service Worker：PWA 离线可用 + 静态资源加速。
  * 缓存策略（关键约束：活动数据必须新鲜，任何接口响应都不进缓存）：
  *   1. 非 GET 请求（提交活动/登录等）→ 直接放行，不拦截；
- *   2. /api/ 接口 → network-only，离线时由页面 toast 提示；
+ *   2. /api/ 接口与 /_AMapService/ 高德代理 → network-only，离线时由页面 toast 提示；
  *   3. 页面导航（navigate）→ network-first，失败回落缓存的首页；
  *   4. 同源静态资源（js/css/图片）→ stale-while-revalidate，先读缓存再后台更新；
  *   5. 跨域资源（高德地图 SDK）→ 不缓存，直接走网络。
@@ -17,7 +17,7 @@
 // 版本号约定：每次修改 APP_SHELL 中的 js/css 都要 +1。
 // 静态资源是 stale-while-revalidate，不 bump 的话老访客会先吃到旧缓存脚本，
 // 要刷新两次才看到新逻辑；bump 后 activate 会清掉旧缓存并重新预缓存新文件。
-const CACHE = 'arkonlymap-v4';
+const CACHE = 'arkonlymap-v5';
 // App shell：预缓存保证离线首访即可打开（图标/字体等大文件不预缓存，按需 SWR）
 const APP_SHELL = [
   '/',
@@ -60,7 +60,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return; // 跨域不缓存（字体 CDN / 高德 SDK）
 
-  if (url.pathname.startsWith('/api/')) return; // 活动数据 network-only，保证新鲜
+  // 活动数据与高德安全密钥代理 network-only，保证新鲜且不进缓存
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_AMapService/')) return;
 
   if (req.mode === 'navigate') {
     // 页面导航：network-first（HTML 常变），断网回落缓存首页

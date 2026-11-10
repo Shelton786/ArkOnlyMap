@@ -81,6 +81,8 @@ npm start              # Express + better-sqlite3，浏览器打开 http://local
 
 > 不使用 Key 时，地图区域显示占位提示，但列表 / 提交 / 导入功能均不受影响。
 
+> 🔒 **安全密钥不下发浏览器**：`AMAP_SECURITY_CODE` 仅留在服务端。前端地图采用高德官方「代理转发」模式——`window._AMapSecurityConfig.serviceHost` 指向本站 `/_AMapService`，由服务端代理（Cloudflare Pages 的 `functions/_AMapService/[[path]].js`，或自托管的 `server/index.js`）在转发 restapi.amap.com 时附加 `jscode`。`/api/config` 只返回公开的 `AMAP_KEY`，绝不返回安全密钥。代理仅放行 Geocoder / AutoComplete 用到的端点，防止被当成开放代理刷配额。
+
 ### 🔑 申请高德「Web 服务」Key（服务端批量解析坐标）
 
 地图标记需要经纬度。本项目用「Web 服务」Key 在服务端批量把地址解析成坐标，写入数据库后所有人**首屏即可见标记**，无需浏览器逐个解析。
