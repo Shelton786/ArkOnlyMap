@@ -47,7 +47,7 @@ async function reviewAction(id, action) {
   const r = await api('/api/admin/review/' + id, { method: 'POST', body: JSON.stringify({ action }) });
   if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || '操作失败'); return; }
   toast(action === 'approve' ? '已通过' : '已驳回');
-  loadEvents();
+  loadEvents({ fresh: true });
   openReviewQueue();
 }
 

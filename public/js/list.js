@@ -10,9 +10,12 @@
 
 /* ---------------- 数据 + 侧边列表 + 筛选 ---------------- */
 /* ---------------- 数据 ---------------- */
-async function loadEvents() {
+async function loadEvents(opts = {}) {
   try {
-    const r = await api('/api/events?limit=1000');
+    // 写操作（提交/编辑/删除/审核/认领）后传 { fresh: true }：加时间戳参数绕过 CDN 边缘缓存，
+    // 保证操作者本人立刻看到结果；普通加载走缓存（s-maxage=60），其他访客最多延迟 60 秒。
+    const url = '/api/events?limit=1000' + (opts.fresh ? '&_=' + Date.now() : '');
+    const r = await api(url);
     const data = await r.json();
     // 集会状态由「浏览器当天日期」+ 举办日期实时推算，避免依赖服务端缓存
     state.events = (data.items || []).map((e) => { e.status = eventStatus(e); return e; });

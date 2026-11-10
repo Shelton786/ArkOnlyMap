@@ -105,7 +105,7 @@ async function claimEvent(id) {
   toast('已提交认领，等待管理员审核');
   const d = await r.json();
   const ev = state.events.find((e) => e.id === id);
-  if (ev) { Object.assign(ev, d); openDetail(ev); } else loadEvents();
+  if (ev) { Object.assign(ev, d); openDetail(ev); } else loadEvents({ fresh: true });
 }
 
 async function approveClaim(id) {

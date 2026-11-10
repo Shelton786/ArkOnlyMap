@@ -26,7 +26,7 @@ async function deleteEvent(id) {
   if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error || '删除失败'); return; }
   toast('已删除');
   closeDetail();
-  loadEvents();
+  loadEvents({ fresh: true });
 }
 
 // 省份回填匹配：库内 province 历史两种写法并存（「江苏」/「江苏省」/「广西壮族自治区」），
@@ -260,7 +260,7 @@ async function submitForm(ev, opts = {}) {
   if (isSupplement || d.pending) toast('已提交，等待管理员审核');
   else if (isEdit) toast('已保存');
   else toast('提交成功，感谢贡献！');
-  loadEvents();
+  loadEvents({ fresh: true });
   } catch (e) {
     console.error('submitForm error', e);
     if (err) err.textContent = (e && e.message) ? e.message : '提交失败，请重试';

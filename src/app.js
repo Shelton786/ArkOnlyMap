@@ -305,18 +305,43 @@ export function createApp() {
     // 管理员可加 ?review=all 查看 rejected；默认仅返回 approved + pending（公开）
     const user = c.get('user');
     const review = c.req.query('review') === 'all' && auth.roleAtLeast(user, 'admin') ? 'all' : 'public';
-    return c.json(
-      await db.listEvents(c.env.DB, {
-        q: q || undefined,
-        city: city || undefined,
-        province: province || undefined,
-        status: status || undefined,
-        page,
-        limit,
-        withCoordsOnly,
-        review,
-      })
-    );
+    // 边缘缓存：Pages Functions 的动态响应不会被 CDN 自动缓存（仅设 s-maxage 无效），
+    // 必须用 Cache API 显式缓存。仅公开变体可缓存（listEvents 不传 userId，响应与登录态无关）；
+    // review=all 含驳回数据，若入缓存会经同 URL 泄露给普通用户，必须 no-store。
+    // 带时间戳的绕过请求（写操作后刷新）只读不存，避免产生一次性缓存垃圾。
+    // 含 review=all 的 URL 一律不缓存：非管理员请求它会降级为公开数据，若落缓存，
+    // 管理员随后请求同 URL 会命中这份缺驳回数据的响应。
+    // max-age=0 保证浏览器不本地缓存；s-maxage=60 即边缘 TTL（Cache API 不支持 SWR）。
+    const cacheable = review === 'public' && c.req.query('review') !== 'all' && c.req.query('_') === undefined;
+    const cacheKey = new Request(c.req.url, { method: 'GET' });
+    if (cacheable) {
+      try {
+        const hit = await caches.default.match(cacheKey);
+        if (hit) {
+          const res = new Response(hit.body, hit);
+          res.headers.set('X-Edge-Cache', 'HIT');
+          return res;
+        }
+      } catch (e) { console.warn('edge cache match failed:', e.message); }
+    }
+    const data = await db.listEvents(c.env.DB, {
+      q: q || undefined,
+      city: city || undefined,
+      province: province || undefined,
+      status: status || undefined,
+      page,
+      limit,
+      withCoordsOnly,
+      review,
+    });
+    const res = c.json(data);
+    res.headers.set('Cache-Control', review === 'public' ? 'public, max-age=0, s-maxage=60' : 'no-store');
+    if (cacheable) {
+      res.headers.set('X-Edge-Cache', 'MISS');
+      try { await caches.default.put(cacheKey, res.clone()); }
+      catch (e) { console.warn('edge cache put failed:', e.message); }
+    }
+    return res;
   });
 
   app.get('/api/events/:id', async (c) => {
