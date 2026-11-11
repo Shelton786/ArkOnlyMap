@@ -90,7 +90,7 @@ async function openAccountCenter() {
     <div class="ac-section-title">第三方绑定</div>
     <div class="ac-binds">
       <div class="bind-row">
-        <span>鹰角通行证（11 位 UID）</span>
+        <span>鹰角通行证（至少 8 位 UID）</span>
         ${hypergryph ? '<span class="bind-on">已绑定</span><button class="ak-btn ak-btn--sm ak-btn--ghost" id="ac-unhg">解绑</button>' : '<button class="ak-btn ak-btn--sm" id="ac-bindhg">绑定</button>'}
       </div>
       <div class="bind-row"><span>QQ / 微信 / Telegram</span><span class="bind-soon">即将开放</span></div>
@@ -111,7 +111,7 @@ async function saveAccount() {
 }
 
 async function bindHg() {
-  const uid = prompt('请输入你的鹰角通行证 11 位 UID：');
+  const uid = prompt('请输入你的鹰角通行证 UID（至少 8 位数字）：');
   if (!uid) return;
   const r = await api('/api/auth/link/hypergryph', { method: 'POST', body: JSON.stringify({ uid }) });
   const d = await r.json();

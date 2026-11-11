@@ -233,7 +233,7 @@
         <section class="acct-card" aria-label="鹰角通行证绑定">
           <h2>鹰角通行证</h2>
           <p style="font-size:13px;color:var(--text-dim);margin-bottom:14px;line-height:1.7;">
-            绑定你的鹰角通行证 UID（11 位数字），方便管理员核实身份。填写后需管理员审核。
+            绑定你的鹰角通行证 UID（至少 8 位数字），方便管理员核实身份。填写后需管理员审核。
           </p>
           <div class="ac-row">
             <span class="k">UID</span>
@@ -353,8 +353,8 @@
       const u = state.user;
       openModal(`
         <div class="modal-title">绑定鹰角通行证</div>
-        <div class="modal-sub">输入你在游戏内的 11 位 UID</div>
-        <div class="field"><label>鹰角 UID</label><input id="hg-uid" type="text" maxlength="11" placeholder="11 位数字" value="${esc(u && u.hypergryph_uid || '')}" pattern="[0-9]{11}" /></div>
+        <div class="modal-sub">输入你在游戏内的 UID（至少 8 位数字，老玩家为 8 位）</div>
+        <div class="field"><label>鹰角 UID</label><input id="hg-uid" type="text" maxlength="20" placeholder="至少 8 位数字" value="${esc(u && u.hypergryph_uid || '')}" pattern="[0-9]{8,}" /></div>
         <div class="modal-error" id="hg-error"></div>
         <div class="modal-actions">
           <button class="ak-btn ak-btn--primary" id="hg-save">提交绑定</button>
@@ -366,7 +366,7 @@
     async function bindHypergryph() {
       const err = document.getElementById('hg-error');
       const uid = document.getElementById('hg-uid').value.trim();
-      if (!/^\d{11}$/.test(uid)) { err.textContent = '请输入正确的 11 位数字 UID'; return; }
+      if (!/^\d{8,}$/.test(uid)) { err.textContent = '请输入至少 8 位数字的 UID'; return; }
       try {
         const r = await api('/api/auth/link/hypergryph', { method: 'POST', body: JSON.stringify({ uid }) });
         const d = await r.json();

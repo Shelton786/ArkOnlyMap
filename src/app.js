@@ -228,11 +228,12 @@ export function createApp() {
     }
   });
 
-  // 绑定鹰角通行证（手动 11 位 UID，阶段 A 即可用，无 OAuth）
+  // 绑定鹰角通行证（手动 UID，阶段 A 即可用，无 OAuth）
+  // 至少 8 位数字：老玩家 UID 为 8 位，新玩家 9-11 位（2026-11-11 用户反馈 8 位无法绑定后放宽）
   app.post('/api/auth/link/hypergryph', auth.requireAuth, async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const uid = (body.uid || '').trim();
-    if (!/^\d{11}$/.test(uid)) return c.json({ error: '鹰角通行证为 11 位数字 ID' }, 400);
+    if (!/^\d{8,}$/.test(uid)) return c.json({ error: '鹰角通行证 UID 需为至少 8 位数字' }, 400);
     const exist = await db.getIdentity(c.env.DB, 'hypergryph', uid);
     if (exist && exist.user_id !== c.get('user').id) return c.json({ error: '该鹰角通行证已被其他账户绑定' }, 409);
     await db.createIdentity(c.env.DB, c.get('user').id, 'hypergryph', uid, uid, 0);
