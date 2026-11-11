@@ -29,7 +29,7 @@
 - 前端：原生 HTML/CSS/JS（无构建步骤）+ 高德地图 JS API 2.0
 - 认证：node:crypto scrypt 加盐哈希 + HMAC-SHA256 签名 Cookie（首位注册者自动为管理员）
 - 导入：SheetJS(xlsx) 读表 + 高德 Web 服务地理编码补全坐标
-- *兼容遗留*：`server/`（Express + better-sqlite3）仍可本地或自托管 VPS 运行，详见部署章节
+- **遗留代码，不建议用于生产**：`server/`（Express + better-sqlite3）仅供本地参考，已与线上 Pages Functions 版本分叉——审核流、角色层级、CSRF 豁免路径均不一致。按此形态部署会出现「提交即公开、权限降级、登录被 CSRF 拦截」等问题，生产请使用 Cloudflare Pages 形态（方案 A）
 
 ---
 
@@ -62,7 +62,9 @@ npm run seed:local     # 生成并导入种子数据（可选，让本地也有�
 npm run dev            # 启动 wrangler pages dev，浏览器打开 http://localhost:8788
 ```
 
-**B. Node 自托管形态（legacy，可选）**
+**B. Node 自托管形态（legacy，仅供本地参考）**
+
+注意：`server/` 已与线上逻辑分叉，不建议用于生产部署，详见部署章节「方案 B / C」前的警告。
 
 ```bash
 npm start              # Express + better-sqlite3，浏览器打开 http://localhost:3000
@@ -335,6 +337,8 @@ npm run dev          # wrangler pages dev，打开 http://localhost:8788
 ```
 
 ### 方案 B：云服务器 / 轻量应用服务器（Docker，自托管 VPS）
+
+> **警告：方案 B 与方案 C 都走 `server/` 遗留实现，已与线上 Pages Functions 版本分叉。** 已知差异：首位注册者角色为 `admin` 而非 `site_admin`、提交活动不经审核直接公开、PUT/DELETE 缺少认领与层级判断、CSRF 豁免路径写错会导致登录被拦。仅建议在隔离环境里做本地试验，正式站点请用方案 A。
 
 数据库以单文件 `data/app.db` 形式存在，挂载卷后重启不丢，适合已有服务器的场景。`server/` 里是 Express + better-sqlite3 形态。
 
