@@ -376,10 +376,32 @@ export function createApp() {
     return res;
   });
 
+  // 详情接口原先既不过滤 review_status、又直接返回 c.*，枚举 id 就能读到
+  // 被驳回 / 已合并的记录及提交者 AMID、认领人 id 等内部列。列表接口只放公开状态，
+  // 这里与之对齐：非管理员仅可见 approved / pending，且只拿到展示所需字段。
+  const PUBLIC_EVENT_FIELDS = [
+    'id', 'title', 'start_date', 'end_date', 'country', 'province', 'city', 'district',
+    'venue', 'address', 'longitude', 'latitude', 'description', 'organizer',
+    'source_url', 'poster_url', 'verified', 'tags', 'status', 'review_status',
+    'submission_type', 'parent_event_id', 'organizer_claim_status',
+    'submitted_by_name', 'submitted_by_amid', 'organizer_user_name', 'organizer_user_amid',
+    'source', 'created_at', 'updated_at',
+  ];
+  function publicEvent(ev) {
+    const out = {};
+    for (const k of PUBLIC_EVENT_FIELDS) if (k in ev) out[k] = ev[k];
+    return out;
+  }
+
   app.get('/api/events/:id', async (c) => {
     const ev = await db.getEvent(c.env.DB, Number(c.req.param('id')));
     if (!ev) return c.json({ error: '未找到该活动' }, 404);
-    return c.json(ev);
+    const isAdmin = auth.roleAtLeast(c.get('user'), 'admin');
+    // 用 404 而非 403，避免暴露「该 id 存在但不可见」
+    if (!isAdmin && !['approved', 'pending'].includes(ev.review_status)) {
+      return c.json({ error: '未找到该活动' }, 404);
+    }
+    return c.json(isAdmin ? ev : publicEvent(ev));
   });
 
   app.post('/api/events', auth.requireAuth, async (c) => {
