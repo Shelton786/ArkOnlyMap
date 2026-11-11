@@ -1,6 +1,7 @@
 // iCalendar 订阅源：未结束的活动写入日历（可按日期直接订阅）
 // 地址：https://arkonlymap.pages.dev/feed.ics
 import { listFeedEvents } from '../src/db-d1.js';
+import { edgeCache } from '../src/edge-cache.js';
 
 const SITE = 'https://arkonlymap.pages.dev';
 
@@ -21,27 +22,29 @@ function nextDay(s) {
 }
 
 export async function onRequestGet(context) {
-  const events = await listFeedEvents(context.env.DB, 100);
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
-  const vevents = events.filter((e) => e.start_date).map((ev) => [
-    'BEGIN:VEVENT',
-    `UID:event-${ev.id}@arkonlymap.pages.dev`,
-    `DTSTAMP:${stamp}`,
-    `DTSTART;VALUE=DATE:${dCompact(ev.start_date)}`,
-    `DTEND;VALUE=DATE:${nextDay(ev.end_date || ev.start_date)}`,
-    `SUMMARY:${iesc(ev.title)}`,
-    `LOCATION:${iesc([ev.province, ev.city, ev.venue, ev.address].filter(Boolean).join(' '))}`,
-    `URL:${SITE}/?event=${ev.id}`,
-    ev.description ? `DESCRIPTION:${iesc(ev.description)}` : null,
-    'END:VEVENT',
-  ].filter(Boolean).join('\r\n')).join('\r\n');
-  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ArkOnlyMap//舟友同好集会地图//CN',
-    'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:舟友同好集会地图',
-    vevents, 'END:VCALENDAR'].join('\r\n');
-  return new Response(ics, {
-    headers: {
-      'Content-Type': 'text/calendar; charset=utf-8',
-      'Cache-Control': 'public, max-age=1800',
-    },
+  // 日历客户端周期性轮询；Pages 动态响应不自动缓存，显式 Cache API，TTL 30 分钟。
+  // DTSTAMP 随缓存固化最多 30 分钟，对日历订阅无实质影响。
+  const reqUrl = new URL(context.request.url);
+  return edgeCache(reqUrl.origin + reqUrl.pathname, 1800, async () => {
+    const events = await listFeedEvents(context.env.DB, 100);
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
+    const vevents = events.filter((e) => e.start_date).map((ev) => [
+      'BEGIN:VEVENT',
+      `UID:event-${ev.id}@arkonlymap.pages.dev`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${dCompact(ev.start_date)}`,
+      `DTEND;VALUE=DATE:${nextDay(ev.end_date || ev.start_date)}`,
+      `SUMMARY:${iesc(ev.title)}`,
+      `LOCATION:${iesc([ev.province, ev.city, ev.venue, ev.address].filter(Boolean).join(' '))}`,
+      `URL:${SITE}/?event=${ev.id}`,
+      ev.description ? `DESCRIPTION:${iesc(ev.description)}` : null,
+      'END:VEVENT',
+    ].filter(Boolean).join('\r\n')).join('\r\n');
+    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ArkOnlyMap//舟友同好集会地图//CN',
+      'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:舟友同好集会地图',
+      vevents, 'END:VCALENDAR'].join('\r\n');
+    return new Response(ics, {
+      headers: { 'Content-Type': 'text/calendar; charset=utf-8' },
+    });
   });
 }

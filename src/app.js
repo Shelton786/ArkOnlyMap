@@ -30,6 +30,7 @@ import { Hono } from 'hono';
 import * as db from './db-d1.js';
 import * as auth from './auth.js';
 import { geocode, geocodeBatch, hasKey } from './geocode.js';
+import { edgeCache } from './edge-cache.js';
 
 export function createApp() {
   const app = new Hono();
@@ -50,11 +51,15 @@ export function createApp() {
   });
 
   app.get('/api/stats', async (c) => {
-    const [events, cities] = await Promise.all([
-      db.countEvents(c.env.DB),
-      db.allCities(c.env.DB),
-    ]);
-    return c.json({ events, cities: cities.length });
+    // 公开统计，与登录态/query 无关：缓存键去掉 query，防随机参数制造缓存垃圾
+    const u = new URL(c.req.url);
+    return edgeCache(u.origin + u.pathname, 300, async () => {
+      const [events, cities] = await Promise.all([
+        db.countEvents(c.env.DB),
+        db.allCities(c.env.DB),
+      ]);
+      return c.json({ events, cities: cities.length });
+    });
   });
 
   // ---------------- 认证 ----------------
@@ -100,7 +105,9 @@ export function createApp() {
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return c.json({ error: '邮箱格式不正确' }, 400);
     if (await db.getUserByName(c.env.DB, username)) return c.json({ error: '该昵称已被注册' }, 409);
     if (email && (await db.getUserByEmail(c.env.DB, email))) return c.json({ error: '该邮箱已被注册' }, 409);
-    const noUsers = (await db.countUsers(c.env.DB)) === 0;
+    // 首位注册者自动成为站长：LIMIT 1 存在性检查（1 行读），
+    // 不用 COUNT(*) 全表扫——users 表随注册增长，全表扫每次注册烧 N 行读额度
+    const noUsers = !(await db.hasAnyUser(c.env.DB));
     const role = noUsers ? 'site_admin' : 'user'; // 首位注册者自动成为站长
     const user = await db.createUser(c.env.DB, {
       username, passwordHash: auth.hashPassword(password), role, email: email || null, displayName: displayName || null,
@@ -259,7 +266,10 @@ export function createApp() {
 
   // ---------------- 活动 ----------------
   app.get('/api/events/cities', async (c) => {
-    return c.json(await db.allCities(c.env.DB));
+    // 城市聚合是 D1 读行大户（全表 GROUP BY，前端每次加载都请求）：
+    // 公开数据、与登录态/query 无关，边缘缓存 300s，缓存键去掉 query。
+    const u = new URL(c.req.url);
+    return edgeCache(u.origin + u.pathname, 300, async () => c.json(await db.allCities(c.env.DB)));
   });
 
   // 公开用户主页资料（前端 /account/{amid} 调用）；不含密码/邮箱等敏感信息
@@ -311,7 +321,10 @@ export function createApp() {
     // 带时间戳的绕过请求（写操作后刷新）只读不存，避免产生一次性缓存垃圾。
     // 含 review=all 的 URL 一律不缓存：非管理员请求它会降级为公开数据，若落缓存，
     // 管理员随后请求同 URL 会命中这份缺驳回数据的响应。
-    // max-age=0 保证浏览器不本地缓存；s-maxage=60 即边缘 TTL（Cache API 不支持 SWR）。
+    // max-age=0 保证浏览器不本地缓存；s-maxage=300 即边缘 TTL（Cache API 不支持 SWR）。
+    // TTL 从 60s 延长到 300s：D1 免费额度为每天 500 万行读（超额硬停），持续流量下
+    // 60s 几乎每分钟穿透一次（实测 ~1440 次/天）；300s 降到 ~288 次/天。
+    // 操作者写后经 fresh:true 时间戳绕过，本人即时可见；其他访客最多延迟 5 分钟。
     const cacheable = review === 'public' && c.req.query('review') !== 'all' && c.req.query('_') === undefined;
     const cacheKey = new Request(c.req.url, { method: 'GET' });
     if (cacheable) {
@@ -335,7 +348,9 @@ export function createApp() {
       review,
     });
     const res = c.json(data);
-    res.headers.set('Cache-Control', review === 'public' ? 'public, max-age=0, s-maxage=60' : 'no-store');
+    // 头与行为一致：只有真正入缓存的公开变体才声明 s-maxage；
+    // review=all（无论角色）与时间戳绕过一律 no-store
+    res.headers.set('Cache-Control', cacheable ? 'public, max-age=0, s-maxage=300' : 'no-store');
     if (cacheable) {
       res.headers.set('X-Edge-Cache', 'MISS');
       try { await caches.default.put(cacheKey, res.clone()); }

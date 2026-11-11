@@ -13,7 +13,7 @@
 async function loadEvents(opts = {}) {
   try {
     // 写操作（提交/编辑/删除/审核/认领）后传 { fresh: true }：加时间戳参数绕过 CDN 边缘缓存，
-    // 保证操作者本人立刻看到结果；普通加载走缓存（s-maxage=60），其他访客最多延迟 60 秒。
+    // 保证操作者本人立刻看到结果；普通加载走缓存（s-maxage=300），其他访客最多延迟 5 分钟。
     const url = '/api/events?limit=1000' + (opts.fresh ? '&_=' + Date.now() : '');
     const r = await api(url);
     const data = await r.json();

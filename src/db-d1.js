@@ -117,16 +117,25 @@ export async function countUsers(db) {
   return r ? r.n : 0;
 }
 
-// 生成「AM-」+ 8 位唯一数字（与现有 amid 不冲突）
+// 是否存在任何用户（注册时判断「首位注册者成为站长」）。
+// LIMIT 1 只读 1 行；不要用 countUsers 的 COUNT(*) 全表扫——
+// users 表随注册增长，全表扫会让每次注册烧掉 N 行 D1 读额度。
+export async function hasAnyUser(db) {
+  const r = await db.prepare('SELECT 1 AS x FROM users LIMIT 1').first();
+  return !!r;
+}
+
+// 生成「AM-」+ 8 位唯一数字（与现有 amid 不冲突）。
+// amid 有 UNIQUE 索引（idx_users_amid）：逐条走索引探测，每次仅 ~1 行读。
+// 旧实现 SELECT 全表 amid 进内存去重——900 用户时每次注册烧 900 行读，
+// 是 D1 免费额度（500 万行/天）的主要耗源之一。碰撞概率 ~用户数/1e8，可忽略。
 export async function generateUniqueAmid(db) {
-  const taken = new Set(
-    (await db.prepare('SELECT amid FROM users WHERE amid IS NOT NULL').all()).results?.map((r) => r.amid) || []
-  );
-  let amid;
-  do {
-    amid = 'AM-' + String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
-  } while (taken.has(amid));
-  return amid;
+  for (let i = 0; i < 32; i++) {
+    const amid = 'AM-' + String(Math.floor(Math.random() * 100000000)).padStart(8, '0');
+    const hit = await db.prepare('SELECT 1 AS x FROM users WHERE amid = ?').bind(amid).first();
+    if (!hit) return amid;
+  }
+  throw new Error('生成 AMID 失败：随机碰撞过多');
 }
 
 // ---------------- auth_identities（多登录方式） ----------------

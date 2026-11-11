@@ -2,6 +2,7 @@
 // 爬虫可直接索引标题/日期/地点/描述 + JSON-LD Event 结构化数据；
 // 真人访客浏览后可经「返回地图」深链回到首页弹窗视图。
 import { getEvent } from '../../src/db-d1.js';
+import { edgeCache } from '../../src/edge-cache.js';
 
 const SITE = 'https://arkonlymap.pages.dev';
 const STATUS_TEXT = { upcoming: '即将举办', ongoing: '进行中', past: '已结束', unknown: '待定' };
@@ -174,16 +175,18 @@ export async function onRequestGet(context) {
   if (!Number.isInteger(id) || id <= 0) {
     return new Response(NOT_FOUND, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
   }
-  const ev = await getEvent(context.env.DB, id);
-  // 与公开列表口径一致：merged/rejected 不对外
-  if (!ev || !['approved', 'pending'].includes(ev.review_status)) {
-    return new Response(NOT_FOUND, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-  }
-  return new Response(renderPage(ev), {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      // 活动数据不常变：CDN 缓存 15 分钟、浏览器 5 分钟，录入新活动后最多一刻钟全网可见
-      'Cache-Control': 'public, max-age=300, s-maxage=900',
-    },
+  // 公开详情页（内容与登录态无关）：sitemap 暴露全部活动 URL，爬虫逐页抓取都会查库。
+  // Pages 动态响应不自动缓存（原先仅设 s-maxage 无效），显式 Cache API 缓存 15 分钟。
+  // 404 不入缓存：活动可能稍后被审核通过，缓存 404 会挡住新页面。
+  const reqUrl = new URL(context.request.url);
+  return edgeCache(reqUrl.origin + reqUrl.pathname, 900, async () => {
+    const ev = await getEvent(context.env.DB, id);
+    // 与公开列表口径一致：merged/rejected 不对外
+    if (!ev || !['approved', 'pending'].includes(ev.review_status)) {
+      return new Response(NOT_FOUND, { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+    }
+    return new Response(renderPage(ev), {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
   });
 }
