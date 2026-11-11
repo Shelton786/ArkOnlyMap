@@ -14,11 +14,21 @@ async function loadEvents(opts = {}) {
   try {
     // 写操作（提交/编辑/删除/审核/认领）后传 { fresh: true }：加时间戳参数绕过 CDN 边缘缓存，
     // 保证操作者本人立刻看到结果；普通加载走缓存（s-maxage=300），其他访客最多延迟 5 分钟。
-    const url = '/api/events?limit=1000' + (opts.fresh ? '&_=' + Date.now() : '');
-    const r = await api(url);
-    const data = await r.json();
+    // 服务端已把 limit 上限收敛到 500，这里分页拉全量，
+    // 避免活动数增长后首页静默少显示一部分。
+    const PAGE = 500;
+    const fresh = opts.fresh ? '&_=' + Date.now() : '';
+    const items = [];
+    for (let page = 1; page <= 20; page++) {
+      const r = await api(`/api/events?limit=${PAGE}&page=${page}${fresh}`);
+      if (!r.ok) throw new Error('活动接口返回 ' + r.status);
+      const data = await r.json();
+      const batch = data.items || [];
+      items.push(...batch);
+      if (batch.length < PAGE || (data.total != null && items.length >= data.total)) break;
+    }
     // 集会状态由「浏览器当天日期」+ 举办日期实时推算，避免依赖服务端缓存
-    state.events = (data.items || []).map((e) => { e.status = eventStatus(e); return e; });
+    state.events = items.map((e) => { e.status = eventStatus(e); return e; });
     state.loadError = false;
     renderCities();
     applyFilters();

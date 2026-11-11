@@ -326,8 +326,11 @@ export function createApp() {
     const city = c.req.query('city');
     const province = c.req.query('province');
     const status = c.req.query('status');
-    const page = c.req.query('page') ? Number(c.req.query('page')) : 1;
-    const limit = c.req.query('limit') ? Number(c.req.query('limit')) : 200;
+    const rawPage = c.req.query('page') ? Number(c.req.query('page')) : 1;
+    const rawLimit = c.req.query('limit') ? Number(c.req.query('limit')) : 200;
+    // 收敛分页参数：limit 无上界时 ?limit=1000000 会放大 D1 读行并把巨大响应塞进边缘缓存
+    const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+    const limit = Number.isFinite(rawLimit) ? Math.min(500, Math.max(1, Math.floor(rawLimit))) : 200;
     const withCoordsOnly = c.req.query('coords') === '1';
     // 管理员可加 ?review=all 查看 rejected；默认仅返回 approved + pending（公开）
     const user = c.get('user');

@@ -16,7 +16,16 @@ export async function onRequestGet(context) {
   // 动态响应，仅设 max-age 无效，必须显式 Cache API。TTL 1 小时，键去掉 query。
   const reqUrl = new URL(context.request.url);
   return edgeCache(reqUrl.origin + reqUrl.pathname, 3600, async () => {
-    const { items } = await listEvents(context.env.DB, { limit: 1000, review: 'public' });
+    // 单次查询上限已收敛到 500，分页拉全量：活动数超过 1000 后，
+    // 原来的单次 limit=1000 会静默漏掉后半部分，导致新活动不被搜索引擎收录。
+    const PAGE = 500;
+    const items = [];
+    for (let page = 1; page <= 20; page++) {
+      const batch = await listEvents(context.env.DB, { limit: PAGE, page, review: 'public' });
+      const rows = batch.items || [];
+      items.push(...rows);
+      if (rows.length < PAGE || items.length >= (batch.total || 0)) break;
+    }
     const now = new Date().toISOString().slice(0, 10);
 
     const urls = [
