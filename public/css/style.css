@@ -288,6 +288,14 @@ body {
   background: rgba(7,11,22,0.55); backdrop-filter: blur(2px);
 }
 .map-loading.hidden { display: none; }
+/* 高德 SDK 加载失败 / 等待超时时的占位，替代空白地图 */
+.map-error {
+  position: absolute; inset: 0; z-index: 15;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 24px; text-align: center;
+  color: var(--text-mute); font-size: 13px;
+}
+.map-error-sub { font-size: 12px; opacity: .8; margin: 0; }
 .ml-spinner {
   width: 46px; height: 46px; border-radius: 50%;
   border: 3px solid rgba(74,171,234,0.25);

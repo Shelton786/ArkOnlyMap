@@ -19,10 +19,17 @@ async function loadEvents(opts = {}) {
     const data = await r.json();
     // 集会状态由「浏览器当天日期」+ 举办日期实时推算，避免依赖服务端缓存
     state.events = (data.items || []).map((e) => { e.status = eventStatus(e); return e; });
+    state.loadError = false;
     renderCities();
     applyFilters();
     renderMarkers();
-  } catch (e) { toast('加载活动失败'); }
+  } catch (e) {
+    state.loadError = true;
+    state.events = [];
+    // 让列表空态显示「加载失败」而不是「暂无活动」，并提供重试入口
+    applyFilters();
+    toast('加载活动失败，请检查网络后重试');
+  }
 }
 
 async function loadCities() {
@@ -141,7 +148,22 @@ function renderList(list) {
   ul.innerHTML = '';
   _listRendered = 0;
   if (_listObserver) { _listObserver.disconnect(); _listObserver = null; }
-  if (!list.length) { empty.classList.remove('hidden'); return; }
+  if (!list.length) {
+    empty.classList.remove('hidden');
+    if (state.loadError) {
+      empty.textContent = '活动数据加载失败，请检查网络后重试。';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ak-btn ak-btn--sm ak-btn--ghost';
+      btn.style.marginLeft = '8px';
+      btn.textContent = '重新加载';
+      btn.addEventListener('click', () => loadEvents({ fresh: true }));
+      empty.appendChild(btn);
+    } else {
+      empty.textContent = '暂无符合条件的漫展，换个筛选或去提交一个吧。';
+    }
+    return;
+  }
   empty.classList.add('hidden');
   appendListBatch(ul, list, null);
   // 若当前选中项在首批之后（如从详情/地图标记联动），一次性补足到其所在批次，保证高亮卡片存在

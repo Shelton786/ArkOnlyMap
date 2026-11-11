@@ -27,6 +27,7 @@ const state = {
   user: null,
   filters: { q: '', city: '', status: '', country: '' },
   selectedId: null,
+  loadError: false,
   pickMarker: null,
 };
 

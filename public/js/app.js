@@ -40,6 +40,20 @@ function bindUI() {
     document.querySelector('.sidebar').classList.toggle('open');
   });}
 
+/* ---------------- 失败降级 ---------------- */
+function showMapError(msg) {
+  const el = document.getElementById('map');
+  // loadAmap 在缺少高德 Key 时已写入更具体的提示，不要覆盖
+  if (!el || el.innerHTML.trim()) return;
+  el.innerHTML = `<div class="map-error">
+      <p>${esc(msg)}</p>
+      <p class="map-error-sub">列表与提交功能不受影响，可刷新页面重试。</p>
+      <button type="button" class="ak-btn ak-btn--ghost ak-btn--sm" id="map-retry">重新加载</button>
+    </div>`;
+  const btn = document.getElementById('map-retry');
+  if (btn) btn.addEventListener('click', () => location.reload());
+}
+
 /* ---------------- 启动 ---------------- */
 (async function main() {
   bindUI();
@@ -57,11 +71,19 @@ function bindUI() {
   }
   const ok = await loadAmap();
   if (ok) {
+    let waited = 0;
     const wait = setInterval(() => {
+      waited += 80;
       if (window.AMap && document.getElementById('map')) {
         clearInterval(wait); initMap();
+      } else if (waited >= 10000) {
+        // SDK 脚本已加载但全局 AMap 迟迟不出现：不能无限轮询，给出可重试的占位
+        clearInterval(wait);
+        showMapError('地图组件加载超时');
       }
     }, 80);
+  } else {
+    showMapError('地图未能加载');
   }
   // PWA：注册 Service Worker（离线可用 app shell；/api/ 数据不走缓存，保证新鲜）
   if ('serviceWorker' in navigator) {
