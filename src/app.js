@@ -563,6 +563,13 @@ export function createApp() {
     }
     const target = await db.getUserById(c.env.DB, targetId);
     if (!target) return c.json({ error: '用户不存在' }, 404);
+    // 层级校验：调用者只能修改权限低于自己的用户。
+    // 否则 admin 可以把唯一的 site_admin 降为 user，事实夺取最高权限，也能互改同级角色。
+    const callerRank = auth.ROLE_RANK[caller.role] ?? -1;
+    const targetRank = auth.ROLE_RANK[target.role] ?? -1;
+    if (targetRank >= callerRank) {
+      return c.json({ error: '不能修改同级或更高权限的用户（含自己）' }, 403);
+    }
     const u = await db.setUserRole(c.env.DB, targetId, newRole);
     return c.json({ user: { id: u.id, username: u.username, amid: u.amid, role: u.role } });
   });
