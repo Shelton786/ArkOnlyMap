@@ -575,8 +575,15 @@ export function createApp() {
     const body = await c.req.json().catch(() => ({}));
     const lng = Number(body.longitude);
     const lat = Number(body.latitude);
-    if (Number.isNaN(lng) || Number.isNaN(lat)) return c.json({ error: '坐标无效' }, 400);
+    // 原本只挡 NaN，999/999 这类明显错误或恶意坐标也能写进库，会把地图标记打到境外。
+    // 这里按合法经纬度范围校验（保留海外展会，不做中国境内限定）。
+    if (!Number.isFinite(lng) || !Number.isFinite(lat) ||
+        lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+      return c.json({ error: '坐标无效：经度需 -180~180，纬度需 -90~90' }, 400);
+    }
     await db.saveCoords(c.env.DB, id, lng, lat);
+    // 留下操作者痕迹，便于在 Workers 日志里追溯误改
+    console.log(`coords updated: event=${id} by=${c.get('user').id}`);
     return c.json({ ok: true });
   });
 
