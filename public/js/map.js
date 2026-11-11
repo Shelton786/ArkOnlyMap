@@ -88,7 +88,17 @@ function addMarker(ev) {
     content: markerHtml(ev), anchor: 'center',
     zIndex: markerZ(ev),
   });
-  marker.on('click', () => { openDetail(ev); });
+  // 增量更新需要知道「这个标记当前渲染的是哪份数据」，否则筛选/刷新后
+  // 点击回调会拿着旧对象打开详情（审核状态、字段都可能已变）。
+  marker._akEv = ev;
+  marker._akMeta = {
+    z: markerZ(ev),
+    status: ev.status,
+    pending: ev.review_status === 'pending',
+    lng: ev.longitude,
+    lat: ev.latitude,
+  };
+  marker.on('click', () => { openDetail(marker._akEv || ev); });
   marker.setMap(state.map);
   state.markers.set(ev.id, marker);
 }
@@ -142,14 +152,46 @@ async function geocodeAll() {
 function renderMarkers(list) {
   if (!state.map) return;
   const items = (list && list.length !== undefined) ? list : state.events;
-  for (const m of state.markers.values()) m.setMap(null);
-  state.markers.clear();
-  // 层级由低到高添加：高优先级的标记最后绘制，即使地图引擎按 DOM 顺序叠放也能保证
-  // 进行中(黄) 压住 即将举办(蓝)，点选的活动压住所有标记。
-  const ordered = [...items].sort((a, b) => markerZ(a) - markerZ(b));
-  for (const ev of ordered) {
-    if (ev.longitude != null && ev.latitude != null) addMarker(ev);
+  const wanted = new Map();
+  for (const ev of items) {
+    if (ev.longitude != null && ev.latitude != null) wanted.set(ev.id, ev);
   }
+  // 先移除被筛掉的标记，其余全部复用，不再整批销毁重建（搜索防抖后每次输入、
+  // 切换城市/状态、打开详情都会走到这里，全量重建数百个 DOM 是主要卡顿来源）。
+  for (const [id, marker] of state.markers) {
+    if (!wanted.has(id)) { marker.setMap(null); state.markers.delete(id); }
+  }
+  const fresh = [];
+  for (const [id, ev] of wanted) {
+    const marker = state.markers.get(id);
+    if (!marker) { fresh.push(ev); continue; }
+    marker._akEv = ev;
+    const meta = marker._akMeta || (marker._akMeta = {});
+    const z = markerZ(ev);
+    if (meta.z !== z) {
+      if (typeof marker.setzIndex === 'function') { marker.setzIndex(z); meta.z = z; }
+      else { marker.setMap(null); state.markers.delete(id); fresh.push(ev); }
+      if (!state.markers.has(id)) continue;
+    }
+    const pending = ev.review_status === 'pending';
+    if (meta.status !== ev.status || meta.pending !== pending) {
+      if (typeof marker.setContent === 'function') {
+        marker.setContent(markerHtml(ev));
+        meta.status = ev.status; meta.pending = pending;
+      } else { marker.setMap(null); state.markers.delete(id); fresh.push(ev); }
+      if (!state.markers.has(id)) continue;
+    }
+    if (meta.lng !== ev.longitude || meta.lat !== ev.latitude) {
+      if (typeof marker.setPosition === 'function') {
+        marker.setPosition([ev.longitude, ev.latitude]);
+        meta.lng = ev.longitude; meta.lat = ev.latitude;
+      } else { marker.setMap(null); state.markers.delete(id); fresh.push(ev); }
+    }
+  }
+  // 本次新增的仍按层级由低到高添加：同 zIndex 时后绘制者在上层，
+  // 保证进行中(黄) 压住 即将举办(蓝)，点选的活动压住所有标记。
+  fresh.sort((a, b) => markerZ(a) - markerZ(b));
+  for (const ev of fresh) addMarker(ev);
   // 缺坐标的活动：在浏览器端顺序地理编码（带间隔，避免限流），登录用户自动回写
   geocodeMissingOnLoad(items);
 }
