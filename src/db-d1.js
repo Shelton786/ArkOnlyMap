@@ -308,13 +308,18 @@ export async function createEvent(db, data) {
   ];
   const full = { ...Object.fromEntries(EVENT_COLS.map((c) => [c, null])), ...data };
   const n = normalizeEvent(full);
-  // 审核 / 认领相关字段（带安全默认值）
-  n.review_status = data.review_status || 'approved';
+  // 审核 / 认领等敏感列一律由服务端决定，绝不采信调用方传入的值。
+  // API 层已有字段白名单，这里做第二道保险，防止将来新增调用点漏掉。
+  n.review_status = data.review_status || 'pending'; // 默认待审，避免漏设时直接公开
   n.submission_type = data.submission_type || 'new';
   n.parent_event_id = data.parent_event_id != null ? Number(data.parent_event_id) : null;
-  n.organizer_user_id = data.organizer_user_id != null ? Number(data.organizer_user_id) : null;
-  n.organizer_claim_status = data.organizer_claim_status || 'none';
   n.submitted_by = data.submitted_by != null ? Number(data.submitted_by) : null;
+  // 认领 / 核实 / 溯源会影响 canEditEvent 的权限判断与数据来源可信度
+  n.organizer_user_id = null;
+  n.organizer_claim_status = 'none';
+  n.verified = 0;
+  n.source_id = null;
+  n.imported_at = null;
   // 0004/0005 新增列：用户提交时多为 null，采集管道会填入编码与溯源
   n.district = data.district || null;
   n.country_code = data.country_code || null;
@@ -322,8 +327,6 @@ export async function createEvent(db, data) {
   n.city_code = data.city_code || null;
   n.district_code = data.district_code || null;
   n.source = data.source || 'user';
-  n.source_id = data.source_id || null;
-  n.imported_at = data.imported_at || null;
   const cols = EVENT_COLS;
   const placeholders = cols.map(() => '?').join(', ');
   const values = cols.map((c) => n[c]);
@@ -482,10 +485,17 @@ export async function listPendingClaims(db) {
   return (r.results || []).map(parseRow);
 }
 
+// 内部列：任何调用方（含 mergeSupplement）都不允许覆盖，一律沿用库中现值
+const EVENT_PROTECTED_COLS = [
+  'submitted_by', 'verified', 'source', 'source_id', 'imported_at',
+  'review_status', 'submission_type', 'parent_event_id',
+  'organizer_user_id', 'organizer_claim_status', 'organizer_claim_user_id',
+];
 export async function updateEvent(db, id, data) {
   const existing = await getEvent(db, id);
   if (!existing) return null;
   const merged = normalizeEvent({ ...existing, ...data });
+  for (const k of EVENT_PROTECTED_COLS) merged[k] = existing[k];
   await db
     .prepare(
       `UPDATE conventions SET

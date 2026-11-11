@@ -37,6 +37,22 @@ export function createApp() {
   app.use('*', auth.attachUser);
   app.use('/api/*', auth.csrfProtect);
 
+  // 用户可通过 API 提交 / 编辑的业务字段白名单。审核状态、认领、核实、溯源、提交者
+  // 等列一律由服务端决定：若接受请求体透传，普通用户可自带
+  // organizer_claim_status='approved' 伪造「已认领」，从而绕过 canEditEvent 的权限判断。
+  const EVENT_INPUT_FIELDS = [
+    'title', 'start_date', 'end_date', 'country', 'province', 'city', 'district',
+    'venue', 'address', 'longitude', 'latitude', 'description', 'organizer',
+    'source_url', 'poster_url', 'tags',
+  ];
+  function pickEventInput(body) {
+    const out = {};
+    for (const k of EVENT_INPUT_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(body, k)) out[k] = body[k];
+    }
+    return out;
+  }
+
   const APP_TITLE = '舟友同好集会地图';
 
   // 暴露给前端的最小配置。AMAP_SECURITY_CODE 绝不下发：
@@ -373,7 +389,7 @@ export function createApp() {
     const isSupplement = body.submission_type === 'supplement' && body.parent_event_id;
     const review_status = auth.roleAtLeast(user, 'organizer') ? 'approved' : 'pending';
     const data = {
-      ...body,
+      ...pickEventInput(body),
       title: body.title.trim(),
       submitted_by: user.id,
       review_status,
@@ -401,7 +417,7 @@ export function createApp() {
       return c.json({ error: '无权修改该活动' }, 403);
     }
     const body = await c.req.json().catch(() => ({}));
-    const data = { ...body, title: (body.title || existing.title).trim() };
+    const data = { ...pickEventInput(body), title: (body.title || existing.title).trim() };
     if ((data.longitude == null || data.latitude == null) && data.address && hasKey(c.env) && (!existing.longitude && !existing.latitude)) {
       const g = await geocode(data.address, data.city, c.env);
       if (g) { data.longitude = g.longitude; data.latitude = g.latitude; }
@@ -549,7 +565,12 @@ export function createApp() {
     let added = 0, skipped = 0;
     for (const it of items) {
       if (!it.title || !it.title.trim()) { skipped++; continue; }
-      await db.createEvent(c.env.DB, { ...it, title: it.title.trim(), submitted_by: c.get('user').id });
+      await db.createEvent(c.env.DB, {
+        ...pickEventInput(it),
+        title: it.title.trim(),
+        submitted_by: c.get('user').id,
+        review_status: 'approved', // 管理员导入无需再审；db 层默认值为 pending
+      });
       added++;
     }
     return c.json({ added, skipped });
