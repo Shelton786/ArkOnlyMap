@@ -11,6 +11,9 @@
 /* ---------------- 事件绑定 + 启动（仅地图首页加载） ---------------- */
 /* ---------------- 事件绑定 ---------------- */
 function bindUI() {
+  // 详情面板初始为收起态（只是移出屏幕），先标记为 inert，避免 Tab 聚焦到屏幕外元素
+  const detailPanel = document.getElementById('detail-panel');
+  if (detailPanel) detailPanel.inert = true;
   // 搜索防抖：逐字符输入会瞬间触发「全量筛选 + 列表 DOM 重建 + 地图标记重算」，
   // 停顿 200ms 才真正执行一次，快速输入时不再逐字卡顿。
   // q 仍即时写入 state，确保防抖窗口内切换城市/状态时联动用的是最新关键词。

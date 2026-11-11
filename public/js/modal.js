@@ -9,15 +9,55 @@
 'use strict';
 
 /* ---------------- 弹窗框架 + 登录注册 ---------------- */
+let _modalKeyHandler = null;
+let _modalPrevFocus = null;
+
 function openModal(html) {
   const root = document.getElementById('modal-root');
-  root.innerHTML = `<div class="modal-mask"><div class="modal">${html}</div></div>`;
+  // 切换登录/注册会再次调用 openModal：先摘掉上一个弹窗的键盘监听，
+  // 但保留最初的来源焦点，关闭时才能把焦点还给触发按钮。
+  if (_modalKeyHandler) {
+    document.removeEventListener('keydown', _modalKeyHandler);
+    _modalKeyHandler = null;
+  } else {
+    _modalPrevFocus = document.activeElement;
+  }
+  root.innerHTML = `<div class="modal-mask"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
   const mask = root.querySelector('.modal-mask');
+  const dialog = root.querySelector('.modal');
+  const title = dialog.querySelector('.modal-title');
+  if (title) dialog.setAttribute('aria-label', title.textContent.trim());
   mask.addEventListener('click', (e) => { if (e.target === mask) closeModal(); });
-  // 弹窗内带 data-close 的按钮统一关闭
   root.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closeModal));
+
+  const focusable = () => [...dialog.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  )].filter((el) => !el.disabled && el.offsetParent !== null);
+  _modalKeyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+    if (e.key !== 'Tab') return;
+    const items = focusable();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  document.addEventListener('keydown', _modalKeyHandler);
+  const first = focusable()[0];
+  if (first) first.focus();
 }
-function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+function closeModal() {
+  if (_modalKeyHandler) {
+    document.removeEventListener('keydown', _modalKeyHandler);
+    _modalKeyHandler = null;
+  }
+  // 关闭后把焦点还给打开弹窗前的元素，避免键盘焦点丢失到页面开头
+  if (_modalPrevFocus && document.contains(_modalPrevFocus)) {
+    try { _modalPrevFocus.focus(); } catch (e) { /* 元素已不可聚焦则忽略 */ }
+  }
+  _modalPrevFocus = null;
+  document.getElementById('modal-root').innerHTML = '';
+}
 
 function openAuth(mode) {
   const isLogin = mode === 'login';

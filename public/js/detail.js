@@ -69,6 +69,7 @@ function openDetail(ev) {
     b.addEventListener('click', actHandlers[b.dataset.act]);
   });
   panel.classList.remove('hidden');
+  panel.inert = false;
 }
 function row(k, v) { return `<div class="row"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`; }
 // 主办行：认领通过后渲染为站内主页链接（与「提交者」一致），点击跳转到该主办的主页；
@@ -86,7 +87,10 @@ function organizerRow(ev) {
 }
 function closeDetail() {
   state.selectedId = null;
-  document.getElementById('detail-panel').classList.add('hidden');
+  const panel = document.getElementById('detail-panel');
+  panel.classList.add('hidden');
+  // 收起态用 translateX 移出屏幕但仍在 DOM 中，不加 inert 会被 Tab 聚焦到屏幕外
+  panel.inert = true;
   applyFilters();
 }
 function canEdit(ev) {

@@ -64,9 +64,20 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_AMapService/')) return;
 
   if (req.mode === 'navigate') {
-    // 页面导航：network-first（HTML 常变），断网回落缓存首页
+    // 页面导航：network-first（HTML 常变），成功时把该 URL 回写缓存；
+    // 断网优先回落「同一页面」的缓存，再退回首页，避免 /about.html 显示首页内容但 URL 不变。
     event.respondWith(
-      fetch(req).catch(() => caches.match('/').then((r) => r || Response.error()))
+      fetch(req).then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
+        return res;
+      }).catch(async () => {
+        const same = await caches.match(req);
+        if (same) return same;
+        return (await caches.match('/')) || Response.error();
+      })
     );
     return;
   }
