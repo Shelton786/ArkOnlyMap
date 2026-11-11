@@ -192,12 +192,12 @@ function renderMarkers(list) {
   // 保证进行中(黄) 压住 即将举办(蓝)，点选的活动压住所有标记。
   fresh.sort((a, b) => markerZ(a) - markerZ(b));
   for (const ev of fresh) addMarker(ev);
-  // 缺坐标的活动：在浏览器端顺序地理编码（带间隔，避免限流），登录用户自动回写
+  // 缺坐标的活动：在浏览器端并发地理编码，登录用户自动回写
   geocodeMissingOnLoad(items);
 }
 async function geocodeMissingOnLoad(items) {
   if (state._geoRunning) return;
-  // 地理编码未启用（服务端无 Key）或高德不可用：直接跳过，不显示「定位中」遮罩
+  // 地理编码未启用（服务端无 Key）或高德不可用：直接跳过提示
   if (!state.config.geocodeEnabled) return;
   if (!window.AMap || !AMap.Geocoder) return;
   const list = (items && items.length !== undefined) ? items : state.events;
@@ -209,26 +209,36 @@ async function geocodeMissingOnLoad(items) {
   const overlay = document.getElementById('map-loading');
   const txt = document.getElementById('map-loading-text');
   if (overlay) overlay.classList.remove('hidden');
-  let done = 0, resolved = 0;
-  try {
-    for (const ev of missing) {
+  let cursor = 0, done = 0, resolved = 0;
+  // 3 路并发 + 错开启动：原先严格串行（每条至少 120ms、单条超时 6s），
+  // 几十条缺坐标会把页面锁上几十秒；并发后耗时约为原来的 1/3，也不会瞬间打满高德限流。
+  const concurrency = Math.min(3, missing.length);
+  const worker = async (slot) => {
+    await new Promise((r) => setTimeout(r, slot * 120));
+    while (cursor < missing.length) {
+      const ev = missing[cursor++];
       ev._geoStarted = true;
-      const g = await geocodeClient(ev);
-      if (g) {
-        ev.longitude = g.longitude; ev.latitude = g.latitude; ev._geoDone = true;
-        addMarker(ev);
-        if (state.user) await saveCoords(ev);
-        resolved++;
-      }
+      try {
+        const g = await geocodeClient(ev);
+        if (g) {
+          ev.longitude = g.longitude; ev.latitude = g.latitude; ev._geoDone = true;
+          addMarker(ev);
+          if (state.user) await saveCoords(ev);
+          resolved++;
+        }
+      } catch (e) { /* 单条失败不影响其余；geocodeClient 内部已有超时兜底 */ }
       done++;
       if (txt) txt.textContent = `正在定位活动坐标… (${done}/${missing.length})`;
-      await new Promise((r) => setTimeout(r, 120));
     }
+  };
+  try {
+    await Promise.all(Array.from({ length: concurrency }, (_, i) => worker(i)));
   } finally {
     if (overlay) overlay.classList.add('hidden');
     state._geoRunning = false;
   }
-  renderMarkers(list);
+  // 不再整体 renderMarkers：补到坐标的活动已逐个 addMarker，
+  // 增量渲染会在下次筛选时自然接管，避免重复遍历。
   if (resolved) toast(`已自动定位 ${resolved} 个活动坐标`);
 }
 function flyTo(ev) {

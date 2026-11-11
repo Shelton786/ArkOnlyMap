@@ -282,6 +282,7 @@ body {
 /* 坐标解析加载层 */
 .map-loading {
   position: absolute; inset: 0; z-index: 16;
+  pointer-events: none; /* 坐标解析期间仍可拖动/点击地图，不再锁死交互 */
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 16px;
   background: rgba(7,11,22,0.55); backdrop-filter: blur(2px);
