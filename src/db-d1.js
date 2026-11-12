@@ -184,11 +184,76 @@ export async function setUserRole(db, id, role) {
   return getUserById(db, id);
 }
 
-export async function listUsers(db) {
-  const r = await db
-    .prepare('SELECT id, username, amid, email, display_name, role, email_verified, created_at FROM users ORDER BY id')
+export const USER_ROLES = ['user', 'organizer', 'admin', 'site_admin'];
+
+// 排序白名单：值全部是硬编码 SQL 片段，不接受请求参数拼接，避免 ORDER BY 注入。
+const USER_SORTS = {
+  newest: 'u.id DESC',
+  oldest: 'u.id ASC',
+  role: "CASE u.role WHEN 'site_admin' THEN 3 WHEN 'admin' THEN 2 WHEN 'organizer' THEN 1 ELSE 0 END DESC, u.id ASC",
+  username: 'u.username COLLATE NOCASE ASC',
+};
+
+// 相关子查询一次性带上业务统计，避免前端为每行再发一次请求（N+1）。
+const USER_SELECT = `u.id, u.username, u.amid, u.email, u.display_name, u.role,
+  u.avatar_url, u.email_verified, u.created_at,
+  (SELECT COUNT(*) FROM conventions c WHERE c.submitted_by = u.id) AS event_count,
+  (SELECT COUNT(*) FROM conventions c WHERE c.submitted_by = u.id AND c.review_status = 'pending') AS pending_count,
+  (SELECT COUNT(*) FROM conventions c WHERE c.organizer_claim_user_id = u.id) AS claim_count`;
+
+function likePattern(s) {
+  // LIKE 里的 % / _ / \ 必须转义，否则用户输入 '%' 会命中全部用户。
+  return '%' + String(s).replace(/[\\%_]/g, (ch) => '\\' + ch) + '%';
+}
+
+/**
+ * 管理后台用户列表：支持关键词、角色筛选、排序与分页。
+ * 返回 { items, total, page, limit, pages }，items 附带活动/待审/认领统计。
+ */
+export async function listUsers(db, { q, role, sort = 'newest', page = 1, limit = 20 } = {}) {
+  const where = [];
+  const bindVals = [];
+  if (q) {
+    where.push("(u.username LIKE ? ESCAPE '\\' OR u.display_name LIKE ? ESCAPE '\\' OR u.amid LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\')");
+    const like = likePattern(q);
+    bindVals.push(like, like, like, like);
+  }
+  if (USER_ROLES.includes(role)) {
+    where.push('u.role = ?');
+    bindVals.push(role);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const orderSql = USER_SORTS[sort] || USER_SORTS.newest;
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+  const safeLimit = Number.isFinite(limit) ? Math.min(200, Math.max(1, Math.floor(limit))) : 20;
+  const offset = (safePage - 1) * safeLimit;
+
+  const totalRow = await db
+    .prepare(`SELECT COUNT(*) AS n FROM users u ${whereSql}`)
+    .bind(...bindVals)
+    .first();
+  const total = totalRow ? totalRow.n : 0;
+  const rows = await db
+    .prepare(`SELECT ${USER_SELECT} FROM users u ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`)
+    .bind(...bindVals, safeLimit, offset)
     .all();
-  return r.results || [];
+  return {
+    items: rows.results || [],
+    total,
+    page: safePage,
+    limit: safeLimit,
+    pages: Math.max(1, Math.ceil(total / safeLimit)),
+  };
+}
+
+// 用户详情面板：该用户最近提交的活动（含补充情报），管理端只读。
+export async function listUserEvents(db, userId, limit = 20) {
+  const rows = await db
+    .prepare(`SELECT id, title, city, start_date, review_status, submission_type, created_at
+      FROM conventions WHERE submitted_by = ? ORDER BY id DESC LIMIT ?`)
+    .bind(userId, Math.min(50, Math.max(1, Math.floor(limit))))
+    .all();
+  return rows.results || [];
 }
 
 // ---------------- conventions ----------------

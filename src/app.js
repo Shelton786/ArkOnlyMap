@@ -549,7 +549,23 @@ export function createApp() {
 
   // ---------------- 管理员：用户管理 ----------------
   app.get('/api/admin/users', auth.requireAdminOrAbove, async (c) => {
-    return c.json(await db.listUsers(c.env.DB));
+    // 用户量上来后不再一次拉全量：分页 + 关键词 + 角色 + 排序，均由 SQL 完成。
+    const rawPage = c.req.query('page') ? Number(c.req.query('page')) : 1;
+    const rawLimit = c.req.query('limit') ? Number(c.req.query('limit')) : 20;
+    const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+    const limit = Number.isFinite(rawLimit) ? Math.min(200, Math.max(1, Math.floor(rawLimit))) : 20;
+    const q = (c.req.query('q') || '').trim().slice(0, 64);
+    const data = await db.listUsers(c.env.DB, {
+      q: q || undefined,
+      role: c.req.query('role'),
+      sort: c.req.query('sort'),
+      page,
+      limit,
+    });
+    // 响应含邮箱 / AMID 等个人信息，不进边缘缓存，也不允许浏览器本地缓存。
+    const res = c.json(data);
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
   });
 
   app.post('/api/admin/users/:id/role', auth.requireAdminOrAbove, async (c) => {
