@@ -221,6 +221,43 @@ const run = async () => {
   let detail = await req(`/api/admin/users/${target.id}/events`, { headers: { Cookie: `ark_session=${token}` } });
   check('用户活动详情接口', detail.status === 200 && Array.isArray((await detail.json()).items));
 
+  // ---------------- 修改密码回归 ----------------
+  // 曾因改密接口复用 getUserById（不投影 password_hash）而全量失效；
+  // 这组用例锁住「输对当前密码必须能改」这一行为。
+  const changePwd = (old_password, new_password) => req('/api/auth/password', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', Cookie: `ark_session=${token}` },
+    body: JSON.stringify({ old_password, new_password }),
+  });
+  const tryLogin = (username, password) => req('/api/auth/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+  let pw = await changePwd('not-the-password', 'newarknights');
+  check('改密：旧密码错误→401', pw.status === 401, `status=${pw.status}`);
+  check('改密：错误旧密码不改库', (await tryLogin('博士', 'arknights')).status === 200);
+  pw = await changePwd('arknights', '12345');
+  check('改密：新密码过短→400', pw.status === 400, `status=${pw.status}`);
+  pw = await changePwd('arknights', 'x'.repeat(129));
+  check('改密：新密码过长→400', pw.status === 400, `status=${pw.status}`);
+  // 绕过 req() 的自动 CSRF 注入，验证双提交校验仍然生效
+  const noCsrf = await app.request('/api/auth/password', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', Cookie: `ark_session=${token}` },
+    body: JSON.stringify({ old_password: 'arknights', new_password: 'newarknights' }),
+  }, env);
+  check('改密：缺 CSRF→403', noCsrf.status === 403, `status=${noCsrf.status}`);
+
+  pw = await changePwd('arknights', 'newarknights');
+  check('改密：正确旧密码→200', pw.status === 200, `status=${pw.status}`);
+  const cleared = pw.headers.get('set-cookie') || '';
+  check('改密：注销当前会话 Cookie', /ark_session=;/.test(cleared) && /Max-Age=0/.test(cleared), cleared.slice(0, 140));
+  check('改密：旧密码登录失败', (await tryLogin('博士', 'arknights')).status === 401);
+  let relog = await tryLogin('博士', 'newarknights');
+  check('改密：新密码登录成功', relog.status === 200, `status=${relog.status}`);
+  check('改密：角色保持不变', (await relog.json()).user?.role === 'site_admin');
+
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
 };
