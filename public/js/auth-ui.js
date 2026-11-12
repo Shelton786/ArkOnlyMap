@@ -34,11 +34,11 @@ function renderAuth() {
       </a>
       <a href="/about.html" class="ak-btn ak-btn--ghost ak-btn--sm" style="text-decoration:none;">关于</a>
       ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-review">审核</button>' : ''}
-      ${u.role === 'site_admin' ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
+      ${isAdmin ? '<button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-users">用户</button>' : ''}
       <button class="ak-btn ak-btn--ghost ak-btn--sm" id="btn-logout">退出</button>`;
     document.getElementById('btn-logout').onclick = logout;
-    if (isAdmin) document.getElementById('btn-review').onclick = () => { location.href = '/admin.html'; };
-    if (u.role === 'site_admin') document.getElementById('btn-users').onclick = () => { location.href = '/admin.html'; };
+    if (isAdmin) document.getElementById('btn-review').onclick = () => { location.href = '/admin.html#review'; };
+    if (isAdmin) document.getElementById('btn-users').onclick = () => { location.href = '/admin.html#users'; };
     if (submitBtn) { submitBtn.style.display = ''; submitBtn.onclick = () => openSubmit(); }
     const gb = document.getElementById('btn-geocode');
     if (gb) {

@@ -562,12 +562,4 @@ body {
 .ri-actions { display: flex; gap: 10px; margin-top: 10px; }
 .ri-actions .ak-btn { flex: 1; }
 
-/* ---------------- 用户管理 ---------------- */
-.user-admin-list { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
-.ua-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
-.ua-name { color: var(--text); }
-.ua-name small { color: var(--text-mute); margin-left: 6px; font-family: 'Saira', monospace; font-stretch: 112%; }
-.ua-role {
-  height: 32px; padding: 0 8px; background: rgba(7,11,22,0.6); color: var(--text);
-  border: 1px solid var(--line-soft); border-radius: var(--radius); font-size: 13px; outline: none;
-}
+/* 用户管理样式已迁至 /admin.html（新表格版）；此处旧弹窗样式随 admin-ui.js 一并移除 */
