@@ -568,29 +568,69 @@ export function createApp() {
     return res;
   });
 
+  // 角色变更的三条硬规则由单条 / 批量两个入口共用，避免逻辑漂移。
+  function validateNewRole(caller, newRole) {
+    if (!db.USER_ROLES.includes(newRole)) return { status: 400, error: '非法角色' };
+    // 权限收敛：仅 site_admin 可授予 admin / site_admin
+    if (!auth.roleAtLeast(caller, 'site_admin') && (newRole === 'admin' || newRole === 'site_admin')) {
+      return { status: 403, error: '仅站长可授予管理员/站长角色' };
+    }
+    return null;
+  }
+  function canChangeUser(caller, target) {
+    // 不能改自己 / 同级 / 更高权限，否则 admin 可把唯一站长降为 user 夺取最高权限。
+    return (auth.ROLE_RANK[target.role] ?? -1) < (auth.ROLE_RANK[caller.role] ?? -1);
+  }
+
   app.post('/api/admin/users/:id/role', auth.requireAdminOrAbove, async (c) => {
     const targetId = Number(c.req.param('id'));
     const caller = c.get('user');
     const body = await c.req.json().catch(() => ({}));
-    const newRole = body.role;
-    if (!['user', 'organizer', 'admin', 'site_admin'].includes(newRole)) {
-      return c.json({ error: '非法角色' }, 400);
-    }
-    // 权限收敛：admin 不能把自己的权限提到 admin/site_admin 以上；仅 site_admin 可设 admin/site_admin
-    if (!auth.roleAtLeast(caller, 'site_admin') && (newRole === 'admin' || newRole === 'site_admin')) {
-      return c.json({ error: '仅站长可授予管理员/站长角色' }, 403);
-    }
+    const problem = validateNewRole(caller, body.role);
+    if (problem) return c.json({ error: problem.error }, problem.status);
     const target = await db.getUserById(c.env.DB, targetId);
     if (!target) return c.json({ error: '用户不存在' }, 404);
-    // 层级校验：调用者只能修改权限低于自己的用户。
-    // 否则 admin 可以把唯一的 site_admin 降为 user，事实夺取最高权限，也能互改同级角色。
-    const callerRank = auth.ROLE_RANK[caller.role] ?? -1;
-    const targetRank = auth.ROLE_RANK[target.role] ?? -1;
-    if (targetRank >= callerRank) {
+    if (!canChangeUser(caller, target)) {
       return c.json({ error: '不能修改同级或更高权限的用户（含自己）' }, 403);
     }
-    const u = await db.setUserRole(c.env.DB, targetId, newRole);
+    const u = await db.setUserRole(c.env.DB, targetId, body.role);
     return c.json({ user: { id: u.id, username: u.username, amid: u.amid, role: u.role } });
+  });
+
+  // 批量改角色：逐条校验、部分成功也返回结果，前端据此提示哪几条被跳过。
+  app.post('/api/admin/users/roles', auth.requireAdminOrAbove, async (c) => {
+    const caller = c.get('user');
+    const body = await c.req.json().catch(() => ({}));
+    const problem = validateNewRole(caller, body.role);
+    if (problem) return c.json({ error: problem.error }, problem.status);
+    const ids = Array.isArray(body.ids)
+      ? [...new Set(body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
+      : [];
+    if (!ids.length) return c.json({ error: '未选择用户' }, 400);
+    if (ids.length > 50) return c.json({ error: '单次最多修改 50 位用户' }, 400);
+    const updated = [], failed = [];
+    for (const id of ids) {
+      try {
+        const target = await db.getUserById(c.env.DB, id);
+        if (!target) { failed.push({ id, error: '用户不存在' }); continue; }
+        if (!canChangeUser(caller, target)) {
+          failed.push({ id, error: '不能修改同级或更高权限的用户' }); continue;
+        }
+        await db.setUserRole(c.env.DB, id, body.role);
+        updated.push({ id, role: body.role });
+        console.log(`role changed: user=${id} ${target.role}->${body.role} by=${caller.id}`);
+      } catch (e) {
+        failed.push({ id, error: '写入失败' });
+      }
+    }
+    return c.json({ updated, failed });
+  });
+
+  // 用户详情面板：该用户最近提交的活动（含补充情报），只读。
+  app.get('/api/admin/users/:id/events', auth.requireAdminOrAbove, async (c) => {
+    const id = Number(c.req.param('id'));
+    if (!Number.isInteger(id) || id <= 0) return c.json({ error: '用户 ID 无效' }, 400);
+    return c.json({ items: await db.listUserEvents(c.env.DB, id, 20) });
   });
 
   // 仅更新坐标（浏览器端地理编码后回写；任何登录用户均可校正）
