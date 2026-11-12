@@ -234,6 +234,13 @@ const run = async () => {
     body: JSON.stringify({ username, password }),
   });
 
+  // 第二台设备：改密前用同一密码再登录一次，用来验证「踢掉所有设备」
+  let dev2 = await tryLogin('博士', 'arknights');
+  const dev2Token = (dev2.headers.get('set-cookie') || '').split('ark_session=')[1]?.split(';')[0];
+  check('改密：第二设备登录成功', dev2.status === 200 && !!dev2Token);
+  let meDev2 = await (await req('/api/auth/me', { headers: { Cookie: `ark_session=${dev2Token}` } })).json();
+  check('改密：改密前第二设备会话有效', meDev2.user?.username === '博士');
+
   let pw = await changePwd('not-the-password', 'newarknights');
   check('改密：旧密码错误→401', pw.status === 401, `status=${pw.status}`);
   check('改密：错误旧密码不改库', (await tryLogin('博士', 'arknights')).status === 200);
@@ -257,6 +264,21 @@ const run = async () => {
   let relog = await tryLogin('博士', 'newarknights');
   check('改密：新密码登录成功', relog.status === 200, `status=${relog.status}`);
   check('改密：角色保持不变', (await relog.json()).user?.role === 'site_admin');
+
+  // 会话版本号：改密码会让此前签发的所有 token（含其它设备）立即失效
+  const meOld1 = await (await req('/api/auth/me', { headers: { Cookie: `ark_session=${token}` } })).json();
+  check('改密：发起改密的设备被踢下线', meOld1.user === null, JSON.stringify(meOld1).slice(0, 80));
+  const meOld2 = await (await req('/api/auth/me', { headers: { Cookie: `ark_session=${dev2Token}` } })).json();
+  check('改密：第二设备被踢下线', meOld2.user === null, JSON.stringify(meOld2).slice(0, 80));
+  const adminWithOld = await req('/api/admin/users', { headers: { Cookie: `ark_session=${dev2Token}` } });
+  check('改密：旧 token 访问管理接口→401', adminWithOld.status === 401, `status=${adminWithOld.status}`);
+  const freshToken = (relog.headers.get('set-cookie') || '').split('ark_session=')[1]?.split(';')[0];
+  const freshVer = JSON.parse(Buffer.from(freshToken.split('.')[0], 'base64url').toString('utf8')).ver;
+  check('改密：新 token 带会话版本 ver=1', freshVer === 1, `ver=${freshVer}`);
+  const meFresh = await (await req('/api/auth/me', { headers: { Cookie: `ark_session=${freshToken}` } })).json();
+  check('改密：新会话有效', meFresh.user?.username === '博士');
+  const meOther = await (await req('/api/auth/me', { headers: { Cookie: `ark_session=${tokenUser}` } })).json();
+  check('改密：其他用户会话不受影响', meOther.user?.username === '舟友A');
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);
