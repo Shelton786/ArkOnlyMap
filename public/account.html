@@ -319,33 +319,52 @@
     function openChangePwd() {
       openModal(`
         <div class="modal-title">修改密码</div>
-        <div class="field"><label>当前密码</label><input id="cp-old" type="password" placeholder="输入当前密码" /></div>
-        <div class="field"><label>新密码</label><input id="cp-new" type="password" placeholder="至少 6 位" /></div>
-        <div class="field"><label>确认新密码</label><input id="cp-confirm" type="password" placeholder="再次输入新密码" /></div>
+        <div class="field"><label>当前密码</label><input id="cp-old" type="password" autocomplete="current-password" placeholder="输入当前密码" /></div>
+        <div class="field"><label>新密码</label><input id="cp-new" type="password" autocomplete="new-password" placeholder="6-128 位" /></div>
+        <div class="field"><label>确认新密码</label><input id="cp-confirm" type="password" autocomplete="new-password" placeholder="再次输入新密码" /></div>
         <div class="modal-error" id="cp-error"></div>
         <div class="modal-actions">
           <button class="ak-btn ak-btn--primary" id="cp-save">确认修改</button>
           <button class="ak-btn ak-btn--ghost" data-close>取消</button>
         </div>`);
       document.getElementById('cp-save').onclick = savePassword;
+      document.getElementById('cp-confirm').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') savePassword();
+      });
     }
 
     async function savePassword() {
       const err = document.getElementById('cp-error');
+      const btn = document.getElementById('cp-save');
       const oldPwd = document.getElementById('cp-old').value;
       const newPwd = document.getElementById('cp-new').value;
       const confirm = document.getElementById('cp-confirm').value;
       if (!oldPwd || !newPwd) { err.textContent = '请填写完整'; return; }
-      if (newPwd.length < 6) { err.textContent = '新密码至少 6 位'; return; }
+      if (newPwd.length < 6 || newPwd.length > 128) { err.textContent = '新密码需为 6-128 位'; return; }
       if (newPwd !== confirm) { err.textContent = '两次输入不一致'; return; }
+      if (newPwd === oldPwd) { err.textContent = '新密码不能与当前密码相同'; return; }
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = '修改中…';
+      err.textContent = '';
       try {
         const r = await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ old_password: oldPwd, new_password: newPwd }) });
-        const d = await r.json();
-        if (!r.ok) { err.textContent = d.error || '修改失败'; return; }
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          err.textContent = r.status === 403
+            ? (d.error || '请求校验失败') + '（请刷新页面后重试）'
+            : (d.error || '修改失败');
+          return;
+        }
         toast('密码已修改，请重新登录');
         closeModal();
         setTimeout(() => { location.href = '/'; }, 1500);
-      } catch (e) { err.textContent = '网络错误'; }
+      } catch (e) {
+        err.textContent = '网络错误，请稍后重试';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
     }
 
     /* ---- 鹰角 UID 绑定 ---- */

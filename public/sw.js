@@ -17,7 +17,7 @@
 // 版本号约定：每次修改 APP_SHELL 中的 js/css 都要 +1。
 // 静态资源是 stale-while-revalidate，不 bump 的话老访客会先吃到旧缓存脚本，
 // 要刷新两次才看到新逻辑；bump 后 activate 会清掉旧缓存并重新预缓存新文件。
-const CACHE = 'arkonlymap-v10';
+const CACHE = 'arkonlymap-v11';
 // App shell：预缓存保证离线首访即可打开（图标/字体等大文件不预缓存，按需 SWR）
 const APP_SHELL = [
   '/',
