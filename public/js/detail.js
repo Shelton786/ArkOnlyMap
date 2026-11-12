@@ -10,9 +10,44 @@
 
 /* ---------------- 活动详情卡 ---------------- */
 /* ---------------- 详情 ---------------- */
+// 列表接口已瘦列：描述、海报、来源链接、认领状态、提交者等由详情接口按需补齐。
+// 打开时先用列表数据立即渲染（无网络等待），再拉完整记录合并重绘一次。
+// 同一活动只请求一次；in-flight promise 复用，快速连点不会重复发请求。
+let _detailSeq = 0;
+function fetchEventDetail(ev) {
+  if (!ev || ev.__detailLoaded) return Promise.resolve(ev);
+  if (ev.__detailPromise) return ev.__detailPromise;
+  ev.__detailPromise = api(`/api/events/${ev.id}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((full) => {
+      if (full && typeof full === 'object' && full.id != null) {
+        // status 由浏览器当天日期推算，不能被服务端按 UTC 算的值覆盖
+        const localStatus = ev.status;
+        Object.assign(ev, full);
+        ev.status = localStatus;
+      }
+      ev.__detailLoaded = true;
+      ev.__detailPromise = null;
+      return ev;
+    })
+    .catch(() => { ev.__detailPromise = null; return ev; });
+  return ev.__detailPromise;
+}
+
 function openDetail(ev) {
   state.selectedId = ev.id;
   applyFilters(); // 同步刷新列表激活态与标记层级
+  renderDetailPanel(ev);
+  const seq = ++_detailSeq;
+  if (!ev.__detailLoaded) {
+    fetchEventDetail(ev).then((full) => {
+      // 快速切换活动时，只重绘当前仍选中的那条
+      if (seq === _detailSeq && state.selectedId === ev.id) renderDetailPanel(full);
+    });
+  }
+}
+
+function renderDetailPanel(ev) {
   const p = ev.poster_url ? `<img class="detail-poster" src="${esc(safeUrl(ev.poster_url))}" loading="lazy" onerror="this.style.display='none'"/>` : '';
   const link = safeUrl(ev.source_url) ? `<a class="detail-link" href="${esc(ev.source_url)}" target="_blank" rel="noopener">查看官方信息 ↗</a>` : '';
   const tags = Array.isArray(ev.tags) ? ev.tags : [];
@@ -97,11 +132,16 @@ function canEdit(ev) {
   const u = state.user;
   if (!u || !ev) return false;
   if (u.role === 'admin' || u.role === 'site_admin') return true;
-  if (ev.submitted_by != null && ev.submitted_by === u.id) return true;
-  if (ev.organizer_claim_status === 'approved' && ev.organizer_user_id === u.id) return true;
-  return false;
+  // 列表已不含 submitted_by / organizer_user_id，权限结论改由详情接口给出
+  // （服务端只回布尔值，不暴露内部用户 ID）；详情未到位时保守地不显示按钮。
+  return !!(ev.permissions && ev.permissions.can_edit);
 }
-function canDelete(ev) { return canEdit(ev); }
+function canDelete(ev) {
+  const u = state.user;
+  if (!u || !ev) return false;
+  if (u.role === 'admin' || u.role === 'site_admin') return true;
+  return !!(ev.permissions && ev.permissions.can_delete);
+}
 
 async function claimEvent(id) {
   const r = await api(`/api/events/${id}/claim`, { method: 'POST' });
@@ -109,7 +149,9 @@ async function claimEvent(id) {
   toast('已提交认领，等待管理员审核');
   const d = await r.json();
   const ev = state.events.find((e) => e.id === id);
-  if (ev) { Object.assign(ev, d); openDetail(ev); } else loadEvents({ fresh: true });
+  // 认领状态变了，详情缓存里的 permissions / 认领展示需重新拉取
+  if (ev) { ev.__detailLoaded = false; Object.assign(ev, d); openDetail(ev); }
+  else loadEvents({ fresh: true });
 }
 
 async function approveClaim(id) {
@@ -118,6 +160,6 @@ async function approveClaim(id) {
   toast('已通过认领');
   const d = await r.json();
   const ev = state.events.find((e) => e.id === id);
-  if (ev) Object.assign(ev, d);
+  if (ev) { ev.__detailLoaded = false; Object.assign(ev, d); }
   openDetail(ev || d);
 }

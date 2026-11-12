@@ -411,7 +411,14 @@ export function createApp() {
     if (!isAdmin && !['approved', 'pending'].includes(ev.review_status)) {
       return c.json({ error: '未找到该活动' }, 404);
     }
-    return c.json(isAdmin ? ev : publicEvent(ev));
+    // 列表接口已瘦列，前端编辑 / 删除权限改由本接口给出结论。只返回布尔值，
+    // 不把 submitted_by / organizer_user_id 等内部 ID 重新暴露给普通访客。
+    const viewer = c.get('user');
+    const permissions = {
+      can_edit: auth.canEditEvent(viewer, ev),
+      can_delete: auth.canDeleteEvent(viewer, ev),
+    };
+    return c.json(isAdmin ? { ...ev, permissions } : { ...publicEvent(ev), permissions });
   });
 
   app.post('/api/events', auth.requireAuth, async (c) => {

@@ -1,6 +1,6 @@
 // 动态 sitemap：首页 + 关于页 + 全部公开活动详情页（/event/<id>）
 // 地址：https://arkonlymap.pages.dev/sitemap.xml
-import { listEvents } from '../src/db-d1.js';
+import { listEventRefs } from '../src/db-d1.js';
 import { edgeCache } from '../src/edge-cache.js';
 
 const SITE = 'https://arkonlymap.pages.dev';
@@ -21,7 +21,7 @@ export async function onRequestGet(context) {
     const PAGE = 500;
     const items = [];
     for (let page = 1; page <= 20; page++) {
-      const batch = await listEvents(context.env.DB, { limit: PAGE, page, review: 'public' });
+      const batch = await listEventRefs(context.env.DB, { limit: PAGE, page });
       const rows = batch.items || [];
       items.push(...rows);
       if (rows.length < PAGE || items.length >= (batch.total || 0)) break;

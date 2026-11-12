@@ -14,9 +14,12 @@ function openSubmit() {
   if (!state.user) { openAuth('login'); return; }
   openForm(null);
 }
-function openEdit(id) {
+async function openEdit(id) {
   const ev = state.events.find((e) => e.id === id);
   if (!ev) return;
+  // 列表已瘦列，编辑表单要回填描述/海报/来源链接/标签等完整字段，
+  // 先向详情接口补齐再打开，避免保存时静默丢字段。
+  await fetchEventDetail(ev);
   openForm(ev);
 }
 
@@ -267,10 +270,12 @@ async function submitForm(ev, opts = {}) {
   }
 }
 
-function openSupplement(parentEv) {
+async function openSupplement(parentEv) {
   if (!state.user) { openAuth('login'); return; }
   // 兼容传入活动对象或活动 id；id 时先解析为对象，否则 parent_event_id 会丢失
   const evObj = (parentEv && typeof parentEv === 'object') ? parentEv : state.events.find((e) => e.id === parentEv);
   if (!evObj) return;
+  // 补充表单用原活动预填，需要完整字段，先补齐详情
+  if (evObj.id != null) await fetchEventDetail(evObj);
   openForm(null, { supplementOf: evObj });
 }

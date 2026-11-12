@@ -40,6 +40,19 @@ const BASE_SELECT = `SELECT c.*, ${STATUS_SQL} AS status,
   LEFT JOIN users u ON u.id = c.submitted_by
   LEFT JOIN users ou ON ou.id = c.organizer_user_id`;
 
+// 全量列表（地图 / 卡片 / 筛选）真正需要的字段。详情信息（description、poster_url、
+// source_url、tags、提交者与认领人、行政编码等）由 GET /api/events/:id 按需补齐，
+// 不再随 382 条记录重复下发：实测响应 436 KB → 约 140 KB。
+// 口径：province / city / district / country 是地点名称的事实来源，不能用编码列替代；
+// 这里保留 city / country（卡片、城市与国家下拉），province / district 走详情补齐。
+// address 必须保留：地图端补坐标时用它拼地理编码入参（map.js geocodeClient）。
+const LIST_EVENT_FIELDS = [
+  'id', 'title', 'start_date', 'end_date', 'city', 'country', 'venue', 'address',
+  'organizer', 'longitude', 'latitude', 'review_status', 'submission_type',
+];
+const LIST_SELECT = `SELECT ${LIST_EVENT_FIELDS.map((f) => `c.${f}`).join(', ')},
+  ${STATUS_SQL} AS status FROM conventions c`;
+
 // 建表（D1 不支持 IF NOT EXISTS 一次多语句的差异，逐条执行更稳妥）
 export async function initSchema(db) {
   await db.exec(`
@@ -316,7 +329,7 @@ export async function listEvents(db, { q, city, status, province, page = 1, limi
   const offset = (Math.max(1, page) - 1) * limit;
   const rows = await db
     .prepare(
-      `${BASE_SELECT} ${whereSql} ORDER BY
+      `${LIST_SELECT} ${whereSql} ORDER BY
         CASE WHEN c.start_date IS NULL THEN 1 ELSE 0 END,
         c.start_date DESC
         LIMIT ? OFFSET ?`
@@ -325,6 +338,22 @@ export async function listEvents(db, { q, city, status, province, page = 1, limi
     .all();
   const items = (rows.results || []).map(parseRow);
   return { total, page, limit, items };
+}
+
+// sitemap / 站点索引类消费者只需要 id + 时间戳。单独走窄查询，
+// 免得为了 lastmod 把全量列表文本都查出来（原先复用 listEvents）。
+export async function listEventRefs(db, { page = 1, limit = 500 } = {}) {
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+  const safeLimit = Number.isFinite(limit) ? Math.min(500, Math.max(1, Math.floor(limit))) : 500;
+  const where = "WHERE c.review_status IN ('approved', 'pending')";
+  const totalRow = await db.prepare(`SELECT COUNT(*) AS n FROM conventions c ${where}`).first();
+  const rows = await db
+    .prepare(`SELECT c.id, c.created_at, c.updated_at FROM conventions c ${where}
+      ORDER BY CASE WHEN c.start_date IS NULL THEN 1 ELSE 0 END, c.start_date DESC
+      LIMIT ? OFFSET ?`)
+    .bind(safeLimit, (safePage - 1) * safeLimit)
+    .all();
+  return { total: totalRow ? totalRow.n : 0, items: rows.results || [] };
 }
 
 // 「TA 的集会」：该用户认领主办且认领已通过的活动。
@@ -369,6 +398,8 @@ export async function getEvent(db, id) {
 // tags 字段以 JSON 字符串存储，统一解析成数组返回，便于前端直接渲染
 function parseRow(r) {
   if (!r) return r;
+  // 列表行不含 tags 列，不要凭空补一个空数组键（会让瘦身白做一部分）。
+  if (!('tags' in r)) return r;
   let tags = [];
   if (typeof r.tags === 'string' && r.tags) {
     try { tags = JSON.parse(r.tags); } catch { tags = []; }
