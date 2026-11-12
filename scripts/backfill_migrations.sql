@@ -19,3 +19,4 @@ INSERT INTO d1_migrations (name) SELECT '0006_users_updated_at.sql'  WHERE NOT E
 INSERT INTO d1_migrations (name) SELECT '0007_claim_user.sql'        WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = '0007_claim_user.sql');
 INSERT INTO d1_migrations (name) SELECT '0008_login_throttle.sql'     WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = '0008_login_throttle.sql');
 INSERT INTO d1_migrations (name) SELECT '0009_token_version.sql'      WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = '0009_token_version.sql');
+INSERT INTO d1_migrations (name) SELECT '0010_indexes.sql'            WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = '0010_indexes.sql');

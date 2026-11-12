@@ -87,8 +87,9 @@ export async function initSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_conv_city ON conventions(city);
     CREATE INDEX IF NOT EXISTS idx_conv_start ON conventions(start_date);
-    CREATE INDEX IF NOT EXISTS idx_conv_title ON conventions(title);
   `);
+  // idx_conv_title 对 LIKE '%q%' 无效，已在 0010 迁移中删除；新索引由迁移统一建，
+  // 这里只建最小骨架，避免重建库时又把空转索引建回来。
 }
 
 // ---------------- users ----------------
