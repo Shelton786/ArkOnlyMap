@@ -285,7 +285,9 @@ npx wrangler d1 create arknights-only-map
 npm run d1:migrate:remote
 ```
 
-> **从旧方式迁移过来的老库**：如果此前用 `wrangler d1 execute --file=...` 手动跑过迁移，先执行一次 `npm run d1:backfill:remote`（本地为 `npm run d1:backfill`）把历史登记进 `d1_migrations` 表，之后统一用 `d1:migrate`。新增迁移只需往 `migrations/` 添加 `0008_xxx.sql` 再执行 `d1:migrate`。
+> **从旧方式迁移过来的老库**：如果此前用 `wrangler d1 execute --file=...` 手动跑过迁移，先执行一次 `npm run d1:backfill:remote`（本地为 `npm run d1:backfill`）把历史登记进 `d1_migrations` 表，之后统一用 `d1:migrate`。新增迁移只需按序号往 `migrations/` 添加 `0010_xxx.sql` 再执行 `d1:migrate`。
+>
+> **切勿**用 `d1 execute --file` 直接跑 `migrations/` 里的新文件而不登记：该方式不会写 `d1_migrations`，下次 `d1:migrate:remote` 会重复执行同一文件（`ADD COLUMN` 会报 duplicate column）。确已手动执行时，需补一行 `INSERT INTO d1_migrations (name) ...`（见 `scripts/backfill_migrations.sql`）。加列类迁移还必须**先执行迁移、再部署读取该列的代码**，否则全站 500。
 
 #### 3. 配置环境变量与密钥
 
