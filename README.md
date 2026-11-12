@@ -219,6 +219,7 @@ node scripts/backfill_accounts.mjs --local    # 或本地 D1
 ```
 
 - 会话用 HMAC 签名 Cookie 维持，密码以 scrypt 加盐哈希存储。
+- **改密码会吊销所有设备的会话**：token 内带会话版本 `ver`，与 `users.token_version` 比对；改密时版本 +1，此前签发的所有 token 在下一次请求即失效。该列由 `migrations/0009_token_version.sql` 引入，**部署读取它的代码前必须先在线上执行该迁移**，否则查询会报表无此列。
 
 ---
 

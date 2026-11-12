@@ -356,7 +356,7 @@
             : (d.error || '修改失败');
           return;
         }
-        toast('密码已修改，请重新登录');
+        toast('密码已修改，所有设备需重新登录');
         closeModal();
         setTimeout(() => { location.href = '/'; }, 1500);
       } catch (e) {
