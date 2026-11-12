@@ -224,12 +224,10 @@ const USER_SORTS = {
   username: 'u.username COLLATE NOCASE ASC',
 };
 
-// 相关子查询一次性带上业务统计，避免前端为每行再发一次请求（N+1）。
+// 用户列表基础字段。业务统计不再用每行 3 个相关子查询（实测 20 行用户会读
+// 15,500 行：每行都把 387 行活动表扫一遍），改为分页后一次批量聚合，见 listUsers。
 const USER_SELECT = `u.id, u.username, u.amid, u.email, u.display_name, u.role,
-  u.avatar_url, u.email_verified, u.created_at,
-  (SELECT COUNT(*) FROM conventions c WHERE c.submitted_by = u.id) AS event_count,
-  (SELECT COUNT(*) FROM conventions c WHERE c.submitted_by = u.id AND c.review_status = 'pending') AS pending_count,
-  (SELECT COUNT(*) FROM conventions c WHERE c.organizer_claim_user_id = u.id) AS claim_count`;
+  u.avatar_url, u.email_verified, u.created_at`;
 
 function likePattern(s) {
   // LIKE 里的 % / _ / \ 必须转义，否则用户输入 '%' 会命中全部用户。
@@ -267,8 +265,34 @@ export async function listUsers(db, { q, role, sort = 'newest', page = 1, limit 
     .prepare(`SELECT ${USER_SELECT} FROM users u ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`)
     .bind(...bindVals, safeLimit, offset)
     .all();
+  const items = rows.results || [];
+  // 只对本页用户做一次批量聚合：用一条 UNION ALL 同时取「提交数/待审数」与「认领数」。
+  // 配合 0010 的 submitted_by / organizer_claim_user_id 索引，行读从万级降到几十。
+  if (items.length) {
+    const ids = items.map((u) => u.id);
+    const marks = ids.map(() => '?').join(', ');
+    const stats = await db
+      .prepare(`SELECT 'sub' AS kind, submitted_by AS uid, COUNT(*) AS n,
+          SUM(CASE WHEN review_status = 'pending' THEN 1 ELSE 0 END) AS p
+        FROM conventions WHERE submitted_by IN (${marks}) GROUP BY submitted_by
+        UNION ALL
+        SELECT 'claim' AS kind, organizer_claim_user_id AS uid, COUNT(*) AS n, 0 AS p
+        FROM conventions WHERE organizer_claim_user_id IN (${marks}) GROUP BY organizer_claim_user_id`)
+      .bind(...ids, ...ids)
+      .all();
+    const byId = new Map(items.map((u) => [u.id, u]));
+    for (const u of byId.values()) {
+      u.event_count = 0; u.pending_count = 0; u.claim_count = 0;
+    }
+    for (const s of stats.results || []) {
+      const u = byId.get(s.uid);
+      if (!u) continue;
+      if (s.kind === 'sub') { u.event_count = s.n; u.pending_count = s.p; }
+      else u.claim_count = s.n;
+    }
+  }
   return {
-    items: rows.results || [],
+    items,
     total,
     page: safePage,
     limit: safeLimit,
