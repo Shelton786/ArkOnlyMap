@@ -20,6 +20,7 @@
 // 无需 Cloudflare 账号即可运行： npm run test:local
 import Database from 'better-sqlite3';
 import { createApp } from '../src/app.js';
+import { listEventRefs, recordLoginFail } from '../src/db-d1.js';
 import { readFileSync, readdirSync } from 'node:fs';
 
 const bs = new Database(':memory:');
@@ -107,8 +108,27 @@ const run = async () => {
   j = await (await req('/api/events?limit=100')).json();
   check('listEvents 含新建', Array.isArray(j.items) && j.items.some((e) => e.id === id));
 
+  // P1 列表瘦列：全量列表只下发首屏必需字段，详情由 /api/events/:id 按需补齐
+  const LIST_FIELDS = ['id', 'title', 'start_date', 'end_date', 'city', 'country', 'venue',
+    'address', 'organizer', 'longitude', 'latitude', 'review_status', 'submission_type', 'status'];
+  const listItem = j.items.find((e) => e.id === id) || {};
+  check('P1 列表字段集恰好 14 个', Object.keys(listItem).length === LIST_FIELDS.length,
+    `got ${Object.keys(listItem).length}: ${Object.keys(listItem).join(',')}`);
+  check('P1 列表字段与白名单一致', LIST_FIELDS.every((k) => k in listItem));
+  check('P1 列表不含详情大字段', !('description' in listItem) && !('poster_url' in listItem)
+    && !('source_url' in listItem) && !('tags' in listItem));
+  check('P1 列表不含内部 ID / 行政编码', !('submitted_by' in listItem)
+    && !('organizer_user_id' in listItem) && !('city_code' in listItem));
+  check('P1 列表保留地点名称与补坐标入参',
+    listItem.city === '上海市' && listItem.country === '中国' && listItem.address === '某地');
+
   j = await (await req(`/api/events/${id}`)).json();
   check('getEvent 正常', j.id === id);
+  check('P1 详情补齐展示字段但不泄露内部 ID',
+    'description' in j && 'poster_url' in j && 'tags' in j
+    && !('submitted_by' in j) && !('organizer_user_id' in j) && !('source_id' in j));
+  check('P1 匿名详情权限布尔为 false',
+    j.permissions?.can_edit === false && j.permissions?.can_delete === false);
   check('日期归一化 ISO', j.start_date === '2030-01-01' && j.end_date === '2030-01-02', `${j.start_date}/${j.end_date}`);
   check('status=upcoming(2030)', j.status === 'upcoming', `got ${j.status}`);
 
@@ -279,6 +299,40 @@ const run = async () => {
   check('改密：新会话有效', meFresh.user?.username === '博士');
   const meOther = await (await req('/api/auth/me', { headers: { Cookie: `ark_session=${tokenUser}` } })).json();
   check('改密：其他用户会话不受影响', meOther.user?.username === '舟友A');
+
+  // ---------------- 阶段 B：P1 重构回归 ----------------
+  const detailAdmin2 = await (await req(`/api/events/${id}`, { headers: { Cookie: `ark_session=${freshToken}` } })).json();
+  check('P1 管理员详情权限布尔为 true',
+    detailAdmin2.permissions?.can_edit === true && detailAdmin2.permissions?.can_delete === true);
+  const detailOther2 = await (await req(`/api/events/${id}`, { headers: { Cookie: `ark_session=${tokenUser}` } })).json();
+  check('P1 他人活动权限布尔为 false', detailOther2.permissions?.can_edit === false);
+  const detailMine2 = await (await req(`/api/events/${pendingId}`, { headers: { Cookie: `ark_session=${tokenUser}` } })).json();
+  check('P1 本人提交活动权限布尔为 true', detailMine2.permissions?.can_edit === true,
+    JSON.stringify(detailMine2.permissions));
+
+  const refs = await listEventRefs(env.DB, { page: 1, limit: 100 });
+  check('P1 sitemap 窄查询只回 id + 时间戳',
+    refs.total >= 1 && Object.keys(refs.items[0]).sort().join(',') === 'created_at,id,updated_at');
+
+  const usersPaged = await (await req('/api/admin/users?q=' + encodeURIComponent('舟友A') + '&limit=1',
+    { headers: { Cookie: `ark_session=${freshToken}` } })).json();
+  check('P1 用户列表筛选分页后统计仍正确',
+    usersPaged.items.length === 1 && usersPaged.items[0].event_count >= 1
+      && typeof usersPaged.items[0].claim_count === 'number',
+    JSON.stringify(usersPaged.items[0]));
+
+  // 0011 加列后的限流清理：遗留行清掉、锁定中的行保留、新行带时间戳
+  bs.prepare('INSERT OR REPLACE INTO login_throttle (key, fails, locked_until, updated_at) VALUES (?, ?, NULL, NULL)')
+    .run('legacy-key', 5);
+  bs.prepare('INSERT OR REPLACE INTO login_throttle (key, fails, locked_until, updated_at) VALUES (?, ?, ?, NULL)')
+    .run('locked-key', 10, new Date(Date.now() + 600000).toISOString());
+  await recordLoginFail(env.DB, 'probe-key');
+  check('P1 限流：迁移前遗留行被清理',
+    !bs.prepare('SELECT 1 FROM login_throttle WHERE key = ?').get('legacy-key'));
+  check('P1 限流：锁定中的行保留',
+    !!bs.prepare('SELECT 1 FROM login_throttle WHERE key = ?').get('locked-key'));
+  check('P1 限流：新写入行带 updated_at',
+    !!bs.prepare('SELECT updated_at FROM login_throttle WHERE key = ?').get('probe-key')?.updated_at);
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);

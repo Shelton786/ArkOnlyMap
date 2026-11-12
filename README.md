@@ -221,6 +221,17 @@ node scripts/backfill_accounts.mjs --local    # 或本地 D1
 - 会话用 HMAC 签名 Cookie 维持，密码以 scrypt 加盐哈希存储。
 - **改密码会吊销所有设备的会话**：token 内带会话版本 `ver`，与 `users.token_version` 比对；改密时版本 +1，此前签发的所有 token 在下一次请求即失效。该列由 `migrations/0009_token_version.sql` 引入，**部署读取它的代码前必须先在线上执行该迁移**，否则查询会报表无此列。
 
+### 数据库访问设计（P1 重构）
+
+- **列表瘦列**：`GET /api/events` 只下发 14 个首屏字段（卡片、地图、筛选、补坐标所需），不再 `SELECT c.*` 或 JOIN 用户表。实测全量响应由 436 KB 降到约 140 KB。描述、海报、来源链接、标签、提交者/主办展示名等由 `GET /api/events/:id` 按需补齐：前端打开详情先用列表数据即时渲染，再拉详情重绘一次；编辑/补充表单也会先补齐再打开。
+- **权限不靠内部 ID**：列表不再返回 `submitted_by` / `organizer_user_id`，编辑与删除权限由详情接口返回 `permissions.can_edit` / `can_delete` 布尔值（复用后端 `auth.canEditEvent` / `canDeleteEvent`），既满足瘦列也不重新暴露内部 ID。
+- **地点名称是唯一事实来源**：`province / city / district / country` 承担筛选、卡片、SSR/JSON-LD、地理编码兜底等约 20 处运行时读取；`province_code / city_code / district_code` 是可重算的派生元数据，编码覆盖率不足（102 条活动缺市码）、海外无码、且有历史串位，**不能反向替代名称列**。`country_code` 因 SSR 在用而保留。
+- **用户列表无 N+1**：`GET /api/admin/users` 分页后只对当页用户做一次批量聚合统计，不再每行 3 个相关子查询（线上实测 rows_read 15,500 → 千级以下，配合 0010 索引更低）。
+- **索引与限流**：`migrations/0010_indexes.sql` 删 3 个零命中索引、补 5 个实用索引；`migrations/0011_login_throttle_updated.sql` 给限流表加 `updated_at`，修掉「失败过但未锁定」的行永远清不掉的问题。两者都已登记进 `scripts/backfill_migrations.sql`。
+- **一次性数据治理**：`scripts/p15_data_cleanup.sql`（幂等）负责省名归一、编码纠错与垃圾提交清理；剩余同名标题 / 同城同日记录按「同品牌多届、多城勿并」的约定只出清单、不自动合并。
+
+> 执行顺序铁律：**加列类迁移（0009 / 0011）必须先在线上执行、再部署读取该列的代码**；改 `public/js/*` 或 `public/css/*` 必须把 `public/sw.js` 的 `CACHE` 版本号 +1；部署前清理 `node_modules/.cache/wrangler`，验证用返回的精确 deployment URL。
+
 ---
 
 ## 📁 目录结构
@@ -285,7 +296,7 @@ npx wrangler d1 create arknights-only-map
 npm run d1:migrate:remote
 ```
 
-> **从旧方式迁移过来的老库**：如果此前用 `wrangler d1 execute --file=...` 手动跑过迁移，先执行一次 `npm run d1:backfill:remote`（本地为 `npm run d1:backfill`）把历史登记进 `d1_migrations` 表，之后统一用 `d1:migrate`。新增迁移只需按序号往 `migrations/` 添加 `0010_xxx.sql` 再执行 `d1:migrate`。
+> **从旧方式迁移过来的老库**：如果此前用 `wrangler d1 execute --file=...` 手动跑过迁移，先执行一次 `npm run d1:backfill:remote`（本地为 `npm run d1:backfill`）把历史登记进 `d1_migrations` 表，之后统一用 `d1:migrate`。新增迁移只需按序号往 `migrations/` 添加 `0012_xxx.sql` 再执行 `d1:migrate`。
 >
 > **切勿**用 `d1 execute --file` 直接跑 `migrations/` 里的新文件而不登记：该方式不会写 `d1_migrations`，下次 `d1:migrate:remote` 会重复执行同一文件（`ADD COLUMN` 会报 duplicate column）。确已手动执行时，需补一行 `INSERT INTO d1_migrations (name) ...`（见 `scripts/backfill_migrations.sql`）。加列类迁移还必须**先执行迁移、再部署读取该列的代码**，否则全站 500。
 
