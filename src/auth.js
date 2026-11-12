@@ -81,7 +81,11 @@ function unsign(token, secret) {
 }
 
 function issueToken(user, secret) {
-  return sign({ uid: user.id, username: user.username, role: user.role, exp: Date.now() + TOKEN_TTL }, secret);
+  // ver 绑定签发时的会话版本：改密码后 users.token_version 递增，旧 token 随即失效。
+  return sign({
+    uid: user.id, username: user.username, role: user.role,
+    ver: user.token_version ?? 0, exp: Date.now() + TOKEN_TTL,
+  }, secret);
 }
 
 // 写入会话 cookie（Hono 上下文）；HTTPS 下附加 Secure，防止明文传输
@@ -146,16 +150,22 @@ export async function csrfProtect(c, next) {
 export async function attachUser(c, next) {
   const cookie = c.req.header('Cookie');
   let uid = null;
+  let tokenVer = 0;
   if (cookie) {
     const m = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
     if (m) {
       const payload = unsign(decodeURIComponent(m[1]), secretOf(c.env));
-      if (payload) uid = payload.uid;
+      if (payload) {
+        uid = payload.uid;
+        tokenVer = payload.ver ?? 0;
+      }
     }
   }
   if (uid != null) {
     const u = await db.getUserById(c.env.DB, uid);
-    if (u) c.set('user', u); // 完整资料（含 amid / email / role / email_verified）
+    // 版本不一致说明该 token 签发于改密码之前（或用户被强制下线），一律视为未登录。
+    // 迁移前签发的旧 token 没有 ver，按 0 处理；存量用户默认也是 0，上线不会误踢在线用户。
+    if (u && (u.token_version ?? 0) === tokenVer) c.set('user', u);
   }
   await next();
 }

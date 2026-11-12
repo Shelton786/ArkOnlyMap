@@ -48,6 +48,7 @@ export async function initSchema(db) {
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
+      token_version INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS conventions (
@@ -93,7 +94,7 @@ export async function getUserByName(db, username) {
 
 export async function getUserById(db, id) {
   return db
-    .prepare('SELECT id, username, amid, email, display_name, role, email_verified, created_at, avatar_url FROM users WHERE id = ?')
+    .prepare('SELECT id, username, amid, email, display_name, role, email_verified, created_at, avatar_url, token_version FROM users WHERE id = ?')
     .bind(id)
     .first();
 }
@@ -105,8 +106,13 @@ export async function getPasswordHashById(db, id) {
   return r ? r.password_hash : null;
 }
 
-export async function setPasswordHash(db, id, passwordHash) {
-  await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, id).run();
+// 改密码：换哈希的同时把会话版本 +1，令此前签发的所有 token（含其它设备）立即失效。
+// 单独拆成函数，避免将来新增「管理员重置密码」入口时漏掉版本递增。
+export async function changePassword(db, id, passwordHash) {
+  await db
+    .prepare('UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?')
+    .bind(passwordHash, id)
+    .run();
 }
 
 export async function getUserByEmail(db, email) {
