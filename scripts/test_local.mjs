@@ -20,7 +20,7 @@
 // 无需 Cloudflare 账号即可运行： npm run test:local
 import Database from 'better-sqlite3';
 import { createApp } from '../src/app.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const bs = new Database(':memory:');
 bs.pragma('journal_mode = WAL');
@@ -43,12 +43,40 @@ const env = {
   AMAP_WEB_KEY: 'test_web_key', AMAP_WEB_SECRET: '',
   SESSION_SECRET: 'test-secret-for-local',
 };
+// Node 环境没有 Cloudflare Cache API：给空实现，让边缘缓存分支直接走 MISS。
+globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
 
-const migration = readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8')
-  + '\n' + readFileSync(new URL('../migrations/0002_accounts.sql', import.meta.url), 'utf8');
-await env.DB.exec(migration);
+// 按文件名顺序应用全部迁移：登录限流、认领人等表在 0003+ 才出现，只跑前两个会缺表。
+const migrationDir = new URL('../migrations/', import.meta.url);
+for (const f of readdirSync(migrationDir).filter((x) => x.endsWith('.sql')).sort()) {
+  await env.DB.exec(readFileSync(new URL(f, migrationDir), 'utf8'));
+}
 const app = createApp();
-const req = (p, init = {}) => app.request(p, init, env);
+// 双提交 CSRF：写请求须把登录时下发的 ark_csrf 同时放进 Cookie 与 X-CSRF-Token。
+// 统一在此注入，避免每个用例重复拼头；顺带记录新签发会话对应的 token。
+const csrfBySession = {};
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const req = async (p, init = {}) => {
+  const method = (init.method || 'GET').toUpperCase();
+  let options = init;
+  if (!SAFE_METHODS.has(method)) {
+    const headers = new Headers(init.headers || {});
+    const cookie = headers.get('Cookie') || '';
+    const sess = cookie.match(/ark_session=([^;]+)/)?.[1];
+    const csrf = sess ? csrfBySession[sess] : null;
+    if (csrf) {
+      headers.set('X-CSRF-Token', csrf);
+      headers.set('Cookie', `${cookie}; ark_csrf=${csrf}`);
+      options = { ...init, headers };
+    }
+  }
+  const res = await app.request(p, options, env);
+  const raw = res.headers.get('set-cookie') || '';
+  const sess = raw.match(/ark_session=([^;]+)/)?.[1];
+  const csrf = raw.match(/ark_csrf=([^;]+)/)?.[1];
+  if (sess && csrf) csrfBySession[sess] = csrf;
+  return res;
+};
 
 let pass = 0, fail = 0;
 const check = (name, cond, extra = '') => {
@@ -85,7 +113,8 @@ const run = async () => {
   check('status=upcoming(2030)', j.status === 'upcoming', `got ${j.status}`);
 
   r = await req('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: '未授权' }) });
-  check('未登录创建 401', r.status === 401, `status=${r.status}`);
+  // CSRF 中间件先于鉴权执行：未登录且无 ark_csrf 的写请求会先被 403 拦下。
+  check('未登录创建被拒绝', r.status === 401 || r.status === 403, `status=${r.status}`);
 
   r = await req(`/api/events/${id}/coords`, { method: 'POST', headers: { 'content-type': 'application/json', Cookie: `ark_session=${token}` }, body: JSON.stringify({ longitude: 121.4, latitude: 31.2 }) });
   check('saveCoords ok', r.status === 200);
@@ -141,7 +170,8 @@ const run = async () => {
   // 管理员通过补充 → 合并进原活动，补充行 merged
   await req(`/api/admin/review/${supId}`, { method: 'POST', headers: { 'content-type': 'application/json', Cookie: `ark_session=${token}` }, body: JSON.stringify({ action: 'approve' }) });
   let mergedParent = await (await req(`/api/events/${pendingId}`)).json();
-  let mergedSup = await (await req(`/api/events/${supId}`)).json();
+  // merged 行对普通访客返回 404（安全修复后），且内部字段仅管理员可见
+  let mergedSup = await (await req(`/api/events/${supId}`, { headers: { Cookie: `ark_session=${token}` } })).json();
   check('合并后原活动 venue 更新', mergedParent.venue === '补充场馆', mergedParent.venue);
   check('补充行标记 merged', mergedSup.review_status === 'merged', mergedSup.review_status);
 
@@ -149,12 +179,19 @@ const run = async () => {
   let rClaim = await req(`/api/events/${pendingId}/claim`, { method: 'POST', headers: { Cookie: `ark_session=${tokenUser}` } });
   check('认领请求 pending', (await rClaim.json()).organizer_claim_status === 'pending');
   await req(`/api/events/${pendingId}/claim/approve`, { method: 'POST', headers: { Cookie: `ark_session=${token}` } });
-  let claimed = await (await req(`/api/events/${pendingId}`)).json();
+  // organizer_user_id 属内部字段，公开投影不再返回，需用管理员身份查看
+  let claimed = await (await req(`/api/events/${pendingId}`, { headers: { Cookie: `ark_session=${token}` } })).json();
   check('认领通过→approved+organizer_user_id', claimed.organizer_claim_status === 'approved' && claimed.organizer_user_id != null);
 
   // 用户管理
-  let users = await (await req('/api/admin/users', { headers: { Cookie: `ark_session=${token}` } })).json();
+  let usersDoc = await (await req('/api/admin/users', { headers: { Cookie: `ark_session=${token}` } })).json();
+  let users = usersDoc.items || [];
   check('用户列表含舟友A', Array.isArray(users) && users.some((u) => u.username === '舟友A'));
+  check('用户列表返回分页元信息', usersDoc.total >= 2 && usersDoc.page === 1 && usersDoc.limit === 20,
+    JSON.stringify(usersDoc).slice(0, 120));
+  check('用户列表附带业务统计', 'event_count' in (users[0] || {}) && 'claim_count' in (users[0] || {}));
+  let found = await (await req('/api/admin/users?q=' + encodeURIComponent('舟友A'), { headers: { Cookie: `ark_session=${token}` } })).json();
+  check('用户列表搜索命中', found.total === 1 && found.items[0].username === '舟友A', JSON.stringify(found.total));
   // site_admin 把舟友A 提为 organizer
   let target = users.find((u) => u.username === '舟友A');
   let roleRes = await req(`/api/admin/users/${target.id}/role`, { method: 'POST', headers: { 'content-type': 'application/json', Cookie: `ark_session=${token}` }, body: JSON.stringify({ role: 'organizer' }) });
@@ -172,6 +209,17 @@ const run = async () => {
   // admin 可把他人设为 user
   let demote = await req(`/api/admin/users/${target.id}/role`, { method: 'POST', headers: { 'content-type': 'application/json', Cookie: `ark_session=${tokenAdmin}` }, body: JSON.stringify({ role: 'user' }) });
   check('admin 可设 user(200)', demote.status === 200, `status=${demote.status}`);
+
+  // 批量改角色：部分成功也逐条返回原因
+  let batch = await req('/api/admin/users/roles', {
+    method: 'POST', headers: { 'content-type': 'application/json', Cookie: `ark_session=${token}` },
+    body: JSON.stringify({ ids: [target.id, 99999], role: 'organizer' }),
+  });
+  let batchDoc = await batch.json();
+  check('批量改角色部分成功', batch.status === 200 && batchDoc.updated?.length === 1 && batchDoc.failed?.length === 1,
+    JSON.stringify(batchDoc));
+  let detail = await req(`/api/admin/users/${target.id}/events`, { headers: { Cookie: `ark_session=${token}` } });
+  check('用户活动详情接口', detail.status === 200 && Array.isArray((await detail.json()).items));
 
   console.log(`\n结果：通过 ${pass} / 失败 ${fail}`);
   process.exit(fail ? 1 : 0);

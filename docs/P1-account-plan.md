@@ -164,6 +164,8 @@ ALTER TABLE conventions ADD COLUMN organizer_claim_status TEXT NOT NULL DEFAULT 
 | GET        | `/api/admin/users`              | 用户列表（site_admin；admin 可见 organizer/user）    |
 | POST       | `/api/admin/users/:id/role`     | 改角色（site_admin 可设任意；admin 仅 organizer/user） |
 
+> **实现更新（2026-11-12）**：上表是 P1 阶段的设计口径，用户管理部分已演进——`GET /api/admin/users` 改为支持 `q/role/sort/page/limit` 并返回 `{items,total,page,limit,pages}`（不再是数组），每条附带提交 / 待审 / 认领统计；新增 `POST /api/admin/users/roles`（批量，单次 ≤50，部分成功返回 `updated/failed`）与 `GET /api/admin/users/:id/events`。用户管理页对 `admin+` 开放（原设计仅站长），可授予角色按 `ROLE_RANK` 收敛：admin 仅能设 `user/organizer`，且只能修改权限严格低于自己的用户。前端位于 `public/js/admin-users.js`。
+>
 > 公开列表 `/api/events` **默认返回 `review_status='approved'` 与 `'pending'`**（pending 标注「未确认」）；管理员加 `?review=all` 还可看 `rejected`/`merged`。
 > 审核语义：pending「新建」→ 通过转 `approved`；pending「补充」(`submission_type='supplement'` 且带 `parent_event_id`) → 通过则合并进原活动并本行标记 `merged`（原活动保持 `approved`）。
 
