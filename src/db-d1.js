@@ -758,20 +758,28 @@ export async function getLoginThrottle(db, key) {
 
 // 记录一次失败；达到上限则锁定 lockMinutes 分钟。返回当前失败次数。
 export async function recordLoginFail(db, key, maxFails = 10, lockMinutes = 15) {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
   await db.prepare(
-    `INSERT INTO login_throttle (key, fails) VALUES (?, 1)
-     ON CONFLICT(key) DO UPDATE SET fails = fails + 1`
-  ).bind(key).run();
+    `INSERT INTO login_throttle (key, fails, updated_at) VALUES (?, 1, ?)
+     ON CONFLICT(key) DO UPDATE SET fails = fails + 1, updated_at = ?`
+  ).bind(key, nowIso, nowIso).run();
   const row = await getLoginThrottle(db, key);
   const fails = row ? row.fails : 1;
   if (fails >= maxFails) {
-    const until = new Date(Date.now() + lockMinutes * 60 * 1000).toISOString();
+    const until = new Date(now + lockMinutes * 60 * 1000).toISOString();
     await db.prepare('UPDATE login_throttle SET locked_until = ? WHERE key = ?').bind(until, key).run();
   }
-  // 顺手清理 24h 前的陈旧记录，防止表无限增长
+  // 清理陈旧记录：只删「当前未锁定」且「24h 内没有失败活动」的行。
+  // 旧条件 (locked_until IS NULL AND fails = 0) OR locked_until < cutoff 漏掉了
+  // 「失败过但没到锁定上限、之后再没登录」的行，这类行永远删不掉、会无限堆积
+  // （线上实测已有 192 行）。updated_at 为 NULL 的是 0011 之前的遗留行，无时间
+  // 信息，只要当前没在锁定中就直接淘汰；正在锁定的行一律保留，避免提前解锁。
   await db.prepare(
-    'DELETE FROM login_throttle WHERE (locked_until IS NULL AND fails = 0) OR locked_until < ?'
-  ).bind(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).run();
+    `DELETE FROM login_throttle
+     WHERE (locked_until IS NULL OR locked_until < ?)
+       AND (updated_at IS NULL OR updated_at < ?)`
+  ).bind(nowIso, new Date(now - 24 * 60 * 60 * 1000).toISOString()).run();
   return fails;
 }
 
