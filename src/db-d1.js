@@ -98,6 +98,17 @@ export async function getUserById(db, id) {
     .first();
 }
 
+// 改密码专用：getUserById 只投影公开字段（它被 attachUser 用于每个请求，
+// 不能让 password_hash 进入 c.get('user')），所以校验旧密码必须单独查哈希。
+export async function getPasswordHashById(db, id) {
+  const r = await db.prepare('SELECT password_hash FROM users WHERE id = ?').bind(id).first();
+  return r ? r.password_hash : null;
+}
+
+export async function setPasswordHash(db, id, passwordHash) {
+  await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, id).run();
+}
+
 export async function getUserByEmail(db, email) {
   if (!email) return null;
   return db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();

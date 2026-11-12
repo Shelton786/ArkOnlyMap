@@ -272,12 +272,19 @@ export function createApp() {
     const body = await c.req.json().catch(() => ({}));
     const oldPwd = body.old_password || '';
     const newPwd = body.new_password || '';
-    if (!oldPwd || !newPwd) return c.json({ error: '请填写当前密码和新密码' }, 400);
-    if (newPwd.length < 6) return c.json({ error: '新密码至少 6 位' }, 400);
-    const user = await db.getUserById(c.env.DB, c.get('user').id);
-    if (!user || !auth.verifyPassword(oldPwd, user.password_hash)) return c.json({ error: '当前密码错误' }, 401);
-    await c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
-      .bind(auth.hashPassword(newPwd), user.id).run();
+    if (typeof oldPwd !== 'string' || typeof newPwd !== 'string' || !oldPwd || !newPwd) {
+      return c.json({ error: '请填写当前密码和新密码' }, 400);
+    }
+    if (newPwd.length < 6 || newPwd.length > 128) return c.json({ error: '新密码需为 6-128 位' }, 400);
+    // 不能复用 db.getUserById：它只投影公开字段，password_hash 恒为 undefined，
+    // 会让 verifyPassword 永远返回 false —— 改密码因此对所有用户失效（2026-11-12 修复）。
+    const hash = await db.getPasswordHashById(c.env.DB, c.get('user').id);
+    if (!hash || !auth.verifyPassword(oldPwd, hash)) return c.json({ error: '当前密码错误' }, 401);
+    await db.setPasswordHash(c.env.DB, c.get('user').id, auth.hashPassword(newPwd));
+    // 前端提示「请重新登录」，服务端同步注销当前会话与 CSRF Cookie，避免改完密码
+    // 页面仍保持登录态造成误解。其它设备上的旧 token 为无状态签名，暂无法即时吊销。
+    auth.clearSessionCookie(c);
+    auth.clearCsrfCookie(c);
     return c.json({ ok: true });
   });
 
